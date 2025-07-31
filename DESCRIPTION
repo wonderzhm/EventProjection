@@ -2,8 +2,9 @@ Package: EventProjection
 Title: Event Prediction in Clinical Trials with Time-to-Event Outcomes
 Version: 0.1
 Date: 2025-7-23
-Authors@R: c(person("Haiming", "Zhou", role = c("aut", "cre","cph"),
-                    email = "haiming2019@gmail.com"))
+Authors@R: c(person("Haiming", "Zhou", role = c("aut", "cre"),
+                    email = "haiming2019@gmail.com"),
+                    person("Zhengkang", "Liang", role = "aut"))
 Description: Provides tools to predict enrollment and event counts at either the design or analysis stage of a clinical trial using user-specified enrollment and time-to-event models via simulation. This package extends the functionality of the CRAN package EventPredInCure, offering additional flexibility and modeling capabilities.
 License: GPL (>= 2)
 Encoding: UTF-8
