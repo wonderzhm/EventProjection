@@ -1,0 +1,14 @@
+Package: eventPred2
+Title: Event Prediction in Clinical Trials with Time-to-Event Outcomes
+Version: 0.1
+Date: 2025-7-23
+Authors@R: c(person("Haiming", "Zhou", role = c("aut", "cre","cph"),
+                    email = "haiming2019@gmail.com"))
+Description: Provides tools to predict enrollment and event counts at either the design or analysis stage of a clinical trial using user-specified enrollment and time-to-event models via simulation. This package extends the functionality of the CRAN package EventPredInCure, offering additional flexibility and modeling capabilities.
+License: GPL (>= 2)
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+Imports: dplyr (>= 1.1.0), rlang (>= 1.0.6), plotly (>= 4.10.1), survival (>= 2.41-3), flexsurv (>= 2.2.2), Matrix (>= 1.2-14), numDeriv (>= 2016.8-1.1), erify (>= 0.4.0), stats (>= 3.5.0), MASS (>= 7.3.54), magrittr, EventPredInCure
+Depends: R (>= 3.5.0)
+LazyData: true
+
