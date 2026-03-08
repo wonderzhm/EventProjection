@@ -64,15 +64,20 @@ A typical design-stage workflow is:
 2. Pass the prior objects to `predictEnrollment()`, `predictEvent()`, or `getPrediction()`.
 3. Use simulated outputs and prediction intervals to summarize uncertainty in study timelines.
 
+For enrollment, `"piecewise uniform"` is a design-stage prior/simulation option used with `predictEnrollment()` and `getPrediction()`. It is not a fitted enrollment model in `fitEnrollment()`.
+
 ## Supported model classes
 
-### Enrollment models
+### Enrollment models fitted by `fitEnrollment()`
 
 - `"poisson"`
 - `"time-decay"`
 - `"b-spline"`
 - `"piecewise poisson"`
-- `"piecewise uniform"`
+
+### Design-stage enrollment prior/simulation option
+
+- `"piecewise uniform"` for design-stage enrollment projection in `predictEnrollment()` and `getPrediction()`; this is not a `fitEnrollment()` model.
 
 ### Standard event models
 
