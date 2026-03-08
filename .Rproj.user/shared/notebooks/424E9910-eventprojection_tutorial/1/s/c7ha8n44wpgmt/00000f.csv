@@ -1,0 +1,7 @@
+"0","fit_event_cure_fixed_by_trt <- fitEvent("
+"0","  df = interimData2,"
+"0","  event_model = ""weibull with cured population"","
+"0","  by_treatment = TRUE,"
+"0","  cure_rate = c(0.20, 0.35),"
+"0","  showplot = FALSE"
+"0",")"

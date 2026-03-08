@@ -1,0 +1,1052 @@
+---
+title: "EventProjection: Technical Tutorial and User Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{EventProjection: Technical Tutorial and User Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## 1. Introduction
+
+`EventProjection` is a unified package for enrollment and event projection in clinical trials. It supports:
+
+- **design-stage projection**, where enrollment, event, and dropout models are specified through prior distributions;
+- **analysis-stage projection before enrollment completion**, where observed enrollment and time-to-event data are combined with optional prior information;
+- **analysis-stage projection after enrollment completion**, where only future events from ongoing participants need to be projected;
+- **standard non-cure models** inherited from the `eventPred` workflow;
+- **mixture-cure and delayed-treatment-effect extensions** adapted from `EventPredInCure`.
+
+The merged package is designed so that:
+
+- non-cure, non-delay workflows remain as close as possible to `eventPred`;
+- cure-aware and delayed-treatment-effect workflows remain as close as possible to `EventPredInCure`;
+- users can work through one consistent API centered on `summarizeObserved()`, `fitEnrollment()`, `fitEvent()`, `fitDropout()`, `predictEnrollment()`, `predictEvent()`, and `getPrediction()`.
+
+This vignette is intentionally more technical than a quick-start guide. It is written to serve as the main package tutorial and to document the modeling assumptions, parameterizations, algorithms, interfaces, and current implementation limitations.
+
+```{r}
+library(EventProjection)
+```
+
+## 2. Package workflow in one page
+
+A typical analysis-stage workflow is:
+
+1. Inspect the data with `summarizeObserved()`.
+2. Fit one or more enrollment models using `fitEnrollment()` if enrollment is ongoing.
+3. Fit one or more event models with `fitEvent()`.
+4. Fit one or more dropout models with `fitDropout()`.
+5. Compare candidate models using plots and information criteria.
+6. Project enrollment with `predictEnrollment()`.
+7. Project events with `predictEvent()`.
+8. For a one-step workflow, use `getPrediction()`.
+
+A typical design-stage workflow is:
+
+1. Build prior objects for enrollment, event, and optionally dropout.
+2. Pass them to `predictEnrollment()`, `predictEvent()`, or `getPrediction()`.
+3. Use simulation outputs and prediction intervals to summarize timing uncertainty.
+
+## 3. Input data structure
+
+For analysis-stage workflows, the subject-level data frame typically contains the following columns.
+
+### Required for enrollment prediction
+
+- `trialsdt`: trial start date
+- `cutoffdt`: data-cut date
+- `usubjid`: unique subject identifier
+- `randdt`: randomization date or enrollment date
+
+### Additional required columns for event prediction
+
+- `time`: observed event or censoring time from randomization
+- `event`: event indicator (`1` = event, `0` = no event by cutoff)
+- `dropout`: dropout indicator (`1` = dropout before event, `0` otherwise)
+
+### Optional columns
+
+- `treatment`: treatment coded as `1`, `2`, ...
+- `treatment_description`: treatment label
+- baseline covariates used in non-cure event or dropout models
+
+The merged implementation standardizes input column names to lower case internally, so users do not need to worry about capitalization differences.
+
+The package includes example data:
+
+```{r}
+data(interimData1)
+data(interimData2)
+data(finalData)
+```
+
+Use these datasets to reproduce most examples in this tutorial.
+
+## 4. Statistical framework
+
+### 4.1 Study stages addressed by the package
+
+The package is intended for three common projection settings.
+
+#### Design stage
+
+No observed trial data are required. Enrollment, event, and dropout models are specified through prior distributions or fixed parameter values.
+
+#### Enrollment phase
+
+Enrollment is ongoing. The future event count is driven by both:
+
+- new subjects who have not yet enrolled, and
+- ongoing subjects who are already enrolled but event-free at the data cut.
+
+#### Follow-up phase
+
+Enrollment is complete. Projection only needs to account for future events from ongoing subjects.
+
+### 4.2 Event-count decomposition
+
+Let `t0` denote the data-cut time and let `D(t)` denote the cumulative number of observed events by calendar time `t`. A standard decomposition is
+
+\[
+D(t) = D(t_0) + Q(t_0, t) + R(t_0, t),
+\]
+
+where:
+
+- \(D(t_0)\) is the observed event count at the data cut,
+- \(Q(t_0, t)\) is the future event count contributed by **ongoing subjects**,
+- \(R(t_0, t)\) is the future event count contributed by **newly enrolled subjects**.
+
+This decomposition is central to `predictEvent()` and `getPrediction()`.
+
+## 5. Enrollment models
+
+The enrollment component models the counting process of subject arrivals over time.
+
+Let \(N(t)\) denote the cumulative number of enrolled subjects by study day \(t\), with mean function \(\mu(t)\) and rate function \(a(t)\). Under a Poisson-process formulation,
+
+\[
+N(t_1) - N(t_0) \sim \text{Poisson}\{\mu(t_1)-\mu(t_0)\},
+\]
+
+where
+
+\[
+\mu(t) = \int_0^t a(u) \, du.
+\]
+
+### 5.1 Supported enrollment models
+
+`EventProjection` supports the following enrollment models:
+
+- `"poisson"`
+- `"time-decay"`
+- `"b-spline"`
+- `"piecewise poisson"`
+
+### 5.2 Homogeneous Poisson model
+
+This model assumes a constant enrollment rate:
+
+\[
+a(t) \equiv \lambda,
+\qquad
+\mu(t)=\lambda t.
+\]
+
+Parameterization used in the package:
+
+\[
+\theta = \log(\lambda).
+\]
+
+### 5.3 Time-decay model
+
+The time-decay model assumes a gradually increasing enrollment rate:
+
+\[
+a(t) = \frac{\mu}{\delta}\left(1-e^{-\delta t}\right),
+\]
+
+with corresponding mean function
+
+\[
+\mu(t)=\frac{\mu}{\delta}\left[t-\frac{1}{\delta}\left(1-e^{-\delta t}\right)\right].
+\]
+
+Parameterization:
+
+\[
+\theta = \{\log(\mu), \log(\delta)\}^\top.
+\]
+
+### 5.4 B-spline enrollment model
+
+The B-spline model is used to flexibly capture non-monotone or otherwise irregular enrollment patterns. The daily enrollment rate is modeled as
+
+\[
+a(t)=\exp\{B(t)^\top\theta\},
+\]
+
+where \(B(t)\) is a B-spline basis with `nknots` inner knots. This model is primarily useful **after the trial has started** and is not intended as a design-stage prior.
+
+### 5.5 Piecewise Poisson model
+
+The piecewise Poisson model assumes a constant enrollment rate within prespecified intervals:
+
+\[
+a(t)=\lambda_j, \qquad t \in [u_{j-1},u_j).
+\]
+
+Parameterization:
+
+\[
+\theta_j = \log(\lambda_j).
+\]
+
+The vector `accrualTime` contains the **fixed left endpoints** of the accrual intervals.
+
+### 5.6 Enrollment-time simulation
+
+For future enrollment simulation, the package uses an inverse-transform strategy equivalent to sequentially generating exponential waiting times on the cumulative-rate scale. If \(V_i\) denotes the arrival time of the \(i\)-th future subject, then
+
+\[
+V_i = \mu^{-1}\left\{\mu(t_0)+E_1+\cdots+E_i\right\},
+\]
+
+where \(E_1,E_2,\ldots\) are independent standard exponential variables.
+
+## 6. Event and dropout models
+
+The event and dropout components are survival models for time from enrollment/randomization to event or dropout.
+
+Let \(T\) denote a generic time-to-event random variable, with survival function
+
+\[
+S(t)=P(T>t)
+\]
+
+and hazard
+
+\[
+h(t)=\lim_{\Delta t\to 0}
+\frac{P(t \le T < t+\Delta t \mid T \ge t)}{\Delta t}.
+\]
+
+All event models may be used through `fitEvent()` and all standard dropout models through `fitDropout()`. The same high-level ideas apply to dropout, except that cure-aware and delayed-treatment-effect extensions are implemented for the **event** model rather than the dropout model.
+
+### 6.1 Supported non-cure event models
+
+- `"exponential"`
+- `"weibull"`
+- `"log-logistic"`
+- `"log-normal"`
+- `"piecewise exponential"`
+- `"model averaging"`
+- `"spline"`
+- `"cox"`
+
+### 6.2 Exponential model
+
+The exponential model assumes constant hazard:
+
+\[
+h(t)=\lambda,
+\qquad
+S(t)=e^{-\lambda t}.
+\]
+
+In the non-cure implementation that follows the `eventPred` convention, the exponential model is parameterized on the regression scale as
+
+\[
+\log(\lambda)=\theta^\top x.
+\]
+
+### 6.3 Weibull model
+
+For the Weibull model,
+
+\[
+h(t)=\frac{\kappa}{\lambda}\left(\frac{t}{\lambda}\right)^{\kappa-1},
+\qquad
+S(t)=\exp\left\{-\left(\frac{t}{\lambda}\right)^\kappa\right\}.
+\]
+
+This model accommodates increasing, constant, or decreasing hazard depending on the shape parameter \(\kappa\).
+
+### 6.4 Log-logistic model
+
+The log-logistic model has survival function
+
+\[
+S(t)=\frac{1}{1+(t/\lambda)^\kappa},
+\]
+
+and can accommodate non-monotone hazard shapes.
+
+### 6.5 Log-normal model
+
+If \(\log(T) \sim N(\mu,\sigma^2)\), then
+
+\[
+S(t)=1-\Phi\left(\frac{\log(t)-\mu}{\sigma}\right).
+\]
+
+Like the log-logistic model, it can capture non-monotone hazard behavior.
+
+### 6.6 Piecewise exponential model
+
+The piecewise exponential model assumes constant hazard within user-specified intervals. If `piecewiseSurvivalTime = c(u_0, u_1, ..., u_J)`, then
+
+\[
+h(t)=\lambda_j, \qquad t\in[u_{j-1},u_j).
+\]
+
+This model is especially useful when the analyst has clinically meaningful phases of risk or wants a flexible but interpretable hazard model.
+
+### 6.7 Model averaging
+
+The model-averaging event model combines Weibull and log-normal fits using BIC-based weights:
+
+\[
+S(t)=w_W S_W(t)+(1-w_W)S_{LN}(t),
+\]
+
+where the Weibull weight is
+
+\[
+w_W=
+\frac{\exp(-\tfrac{1}{2}BIC_W)}{\exp(-\tfrac{1}{2}BIC_W)+\exp(-\tfrac{1}{2}BIC_{LN})}.
+\]
+
+This option is useful when both models are plausible and the analyst wants a more robust parametric extrapolation.
+
+### 6.8 Flexible spline model
+
+The spline model is based on the Royston-Parmar framework. A transformed survival function is modeled as a natural cubic spline of log-time. With \(u=\log(t)\),
+
+\[
+g\{S(t)\}=c(u),
+\]
+
+where `scale` determines the transformation:
+
+- `scale = "hazard"`: \(g(S)=\log[-\log(S)]\)
+- `scale = "odds"`: \(g(S)=\log(1/S-1)\)
+- `scale = "normal"`: \(g(S)=-\Phi^{-1}(S)\)
+
+With zero inner knots, the spline model reduces to Weibull, log-logistic, or log-normal depending on the chosen scale.
+
+### 6.9 Cox model
+
+The Cox option fits a proportional-hazards model and then represents the fitted baseline hazard as a piecewise exponential model over observed event times. For projection beyond the last observed event time, the package extrapolates using a weighted average of hazard rates from the final `m` intervals.
+
+This is a practical option when users want semiparametric fitting on the observed time range but still need forward simulation.
+
+### 6.10 Dropout models
+
+`fitDropout()` supports the same standard non-cure model families as `fitEvent()` except that cure-aware and delayed-treatment-effect versions are not included for dropout. In `getPrediction()`, `dropout_model = "none"` is also allowed.
+
+## 7. Parameterization used in the merged package
+
+A major design feature of both upstream packages is the use of parameterizations that improve large-sample normality and make posterior simulation straightforward. The merged package retains that philosophy.
+
+### 7.1 Enrollment parameterization
+
+For non-cure enrollment models, the merged package follows the `eventPred` / `EventPredInCure` conventions:
+
+- Poisson: \(\theta = \log(\lambda)\)
+- Time-decay: \(\theta = (\log\mu, \log\delta)^\top\)
+- B-spline: spline coefficients
+- Piecewise Poisson: \(\theta_j = \log(\lambda_j)\)
+
+### 7.2 Non-cure event/dropout parameterization
+
+For the core non-cure models inherited from `eventPred`, the package uses the same parameterization philosophy documented in the upstream package manual. In particular, the package-level documentation presents non-cure model parameters on a regression/AFT scale such as:
+
+- exponential: \(\log(\lambda)=\theta^\top x\)
+- Weibull/log-logistic/log-normal: \(\theta=(\beta^\top,\log\sigma)^\top\)
+- piecewise exponential: baseline interval parameters plus optional covariate terms
+- model averaging: block-diagonal parameter vector for Weibull and log-normal
+- spline: spline basis coefficients and optional covariate effects
+- Cox: baseline log-hazard increments plus regression coefficients
+
+### 7.3 Cure-model parameterization
+
+For the Chen-style mixture-cure models adapted from `EventPredInCure`, the merged package uses the cure fraction as the **first** parameter:
+
+\[
+\theta_1 = \operatorname{logit}(p_{cure}),
+\qquad
+p_{cure}=\frac{e^{\theta_1}}{1+e^{\theta_1}}.
+\]
+
+The remaining elements depend on the baseline survival family.
+
+#### Exponential with cured population
+
+\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\lambda)\}.
+\]
+
+#### Weibull with cured population
+
+\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\kappa), \log(\lambda)\}.
+\]
+
+#### Log-logistic with cured population
+
+\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\kappa), \log(\lambda)\}.
+\]
+
+#### Log-normal with cured population
+
+\[
+\theta = \{\operatorname{logit}(p_{cure}), \mu, \log(\sigma)\}.
+\]
+
+#### Piecewise exponential with cured population
+
+\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\lambda_1), \ldots, \log(\lambda_J)\}.
+\]
+
+### 7.4 Fixed cure-rate interface
+
+A key merged enhancement is the `cure_rate` argument in `fitEvent()` and `getPrediction()`.
+
+When `cure_rate = NULL`, the cure fraction is estimated from the data or is expected to be supplied explicitly in the prior object.
+
+When `cure_rate` is provided:
+
+- the cure fraction is treated as **fixed**, not estimated;
+- the returned `theta` still includes `qlogis(cure_rate)` as the first element for consistency;
+- the first row and column of `vtheta` are set to zero, so posterior draws do not perturb the fixed cure fraction;
+- when `by_treatment = TRUE`, `cure_rate` may be either a scalar or a vector with one element per arm.
+
+This is the main interface you asked to expose clearly in the vignette.
+
+## 8. Mixture-cure interpretation
+
+For cure-aware event models, the survival function takes the form
+
+\[
+S(t)=p_{cure} + (1-p_{cure})S_u(t),
+\]
+
+where:
+
+- \(p_{cure}\) is the long-term cured fraction,
+- \(S_u(t)\) is the survival function among the uncured subpopulation.
+
+This formulation is appropriate when a clinically meaningful fraction of participants may never experience the event within the scientific time horizon.
+
+## 9. Prediction algorithms
+
+### 9.1 Ongoing subjects
+
+For an ongoing subject enrolled at time \(U_i\), observed at data cut \(t_0\), the underlying event time must satisfy
+
+\[
+T_i > t_0-U_i.
+\]
+
+The package therefore generates future event times from the **conditional distribution given survival up to the data cut**. Conceptually,
+
+\[
+P(T_i > t \mid T_i > t_0-U_i) = \frac{S(t)}{S(t_0-U_i)}.
+\]
+
+This conditional simulation is central to event projection after a data cut.
+
+### 9.2 New subjects
+
+For subjects not yet enrolled at the data cut:
+
+1. enrollment times are simulated from the chosen enrollment model;
+2. event times are generated from the chosen event model;
+3. dropout times are generated from the chosen dropout model, if applicable;
+4. event, dropout, and administrative censoring are combined to determine whether the event contributes to the future event count.
+
+### 9.3 Posterior simulation versus fixed-parameter simulation
+
+By default, prediction uses approximate posterior uncertainty:
+
+\[
+\theta^{(b)} \sim N(\hat\theta, \hat V_\theta),
+\]
+
+or the closest numerically stable equivalent.
+
+If `fix_parameter = TRUE`, the package does **not** perturb the fitted parameters and instead conditions on the point estimate or fixed prior values. This is often useful for deterministic scenario exploration.
+
+## 10. Function-by-function guide
+
+### 10.1 `summarizeObserved()`
+
+Use `summarizeObserved()` as the first stop in any analysis-stage workflow.
+
+```{r}
+obs1 <- summarizeObserved(
+  df = interimData1,
+  to_predict = "enrollment and event",
+  showplot = FALSE,
+  by_treatment = FALSE
+)
+
+obs2 <- summarizeObserved(
+  df = interimData2,
+  to_predict = "event only",
+  showplot = FALSE,
+  by_treatment = FALSE
+)
+```
+
+Typical outputs include:
+
+- trial start and cutoff summaries;
+- enrollment duration and current enrollment count;
+- current event, dropout, and ongoing-subject counts;
+- cumulative enrollment and event data;
+- daily enrollment rates;
+- Kaplan-Meier plots for time to event and time to dropout.
+
+### 10.2 `fitEnrollment()`
+
+Fit one or more candidate enrollment models and compare them.
+
+```{r}
+fit_enroll_bs <- fitEnrollment(
+  df = interimData1,
+  enroll_model = "b-spline",
+  nknots = 1,
+  showplot = FALSE
+)
+
+fit_enroll_td <- fitEnrollment(
+  df = interimData1,
+  enroll_model = "time-decay",
+  showplot = FALSE
+)
+
+fit_enroll_pw <- fitEnrollment(
+  df = interimData1,
+  enroll_model = "piecewise poisson",
+  accrualTime = c(0, 90, 180),
+  showplot = FALSE
+)
+```
+
+### 10.3 `predictEnrollment()`
+
+Use a fitted enrollment model or a prior object to generate future arrival times and summarize the time to target enrollment.
+
+#### Analysis-stage enrollment prediction
+
+```{r}
+pred_enroll <- predictEnrollment(
+  df = interimData1,
+  target_n = 300,
+  enroll_fit = fit_enroll_bs$fit,
+  lags = 30,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+#### Design-stage enrollment prediction
+
+```{r}
+design_enroll_fit <- list(
+  model = "piecewise poisson",
+  theta = log(26 / 9 * seq(1, 9) / 30.4375),
+  vtheta = diag(9) * 1e-8,
+  accrualTime = seq(0, 8) * 30.4375
+)
+
+design_enroll_pred <- predictEnrollment(
+  target_n = 300,
+  enroll_fit = design_enroll_fit,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+### 10.4 `fitEvent()`
+
+Fit one or more event models to the observed time-to-event data.
+
+```{r}
+fit_event_weibull <- fitEvent(
+  df = interimData2,
+  event_model = "weibull",
+  showplot = FALSE
+)
+
+fit_event_piecewise <- fitEvent(
+  df = interimData2,
+  event_model = "piecewise exponential",
+  piecewiseSurvivalTime = c(0, 140, 352),
+  showplot = FALSE
+)
+
+fit_event_ma <- fitEvent(
+  df = interimData2,
+  event_model = "model averaging",
+  showplot = FALSE
+)
+
+fit_event_cox <- fitEvent(
+  df = interimData2,
+  event_model = "cox",
+  m = 5,
+  showplot = FALSE
+)
+```
+
+### 10.5 `fitDropout()`
+
+Fit a dropout model analogously.
+
+```{r}
+fit_dropout_exp <- fitDropout(
+  df = interimData2,
+  dropout_model = "exponential",
+  showplot = FALSE
+)
+
+fit_dropout_piecewise <- fitDropout(
+  df = interimData2,
+  dropout_model = "piecewise exponential",
+  piecewiseDropoutTime = c(0, 180),
+  showplot = FALSE
+)
+```
+
+### 10.6 `predictEvent()`
+
+Use fitted event and dropout models to project the timing of future events.
+
+#### After enrollment completion
+
+```{r}
+pred_event_complete <- predictEvent(
+  df = interimData2,
+  target_d = 200,
+  event_fit = fit_event_piecewise$fit,
+  dropout_fit = fit_dropout_exp$fit,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+#### Before enrollment completion
+
+```{r}
+fit_event_interim <- fitEvent(
+  df = interimData1,
+  event_model = "weibull",
+  showplot = FALSE
+)
+
+fit_dropout_interim <- fitDropout(
+  df = interimData1,
+  dropout_model = "exponential",
+  showplot = FALSE
+)
+
+pred_event_interim <- predictEvent(
+  df = interimData1,
+  target_d = 200,
+  newSubjects = pred_enroll$newSubjects,
+  event_fit = fit_event_interim$fit,
+  dropout_fit = fit_dropout_interim$fit,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+### 10.7 `getPrediction()`
+
+`getPrediction()` is the main high-level interface. It fits models when needed, generates projections, and returns summarized results.
+
+#### Analysis stage before enrollment completion
+
+```{r}
+pred_full_interim <- getPrediction(
+  df = interimData1,
+  to_predict = "enrollment and event",
+  target_n = 300,
+  target_d = 200,
+  enroll_model = "time-decay",
+  event_model = "weibull",
+  dropout_model = "exponential",
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+#### Analysis stage after enrollment completion
+
+```{r}
+pred_full_complete <- getPrediction(
+  df = interimData2,
+  to_predict = "event only",
+  target_d = 200,
+  event_model = "cox",
+  m = 5,
+  dropout_model = "exponential",
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+#### Design-stage projection from priors
+
+```{r}
+event_prior <- list(
+  model = "piecewise exponential",
+  theta = log(c(0.0533, 0.0309) / 30.4375),
+  vtheta = diag(2) * 1e-8,
+  piecewiseSurvivalTime = c(0, 6) * 30.4375
+)
+
+dropout_prior <- list(
+  model = "exponential",
+  theta = log((-log(1 - 0.05) / 12) / 30.4375),
+  vtheta = 1e-8
+)
+
+pred_design <- getPrediction(
+  df = NULL,
+  to_predict = "enrollment and event",
+  target_n = 300,
+  target_d = 200,
+  enroll_prior = design_enroll_fit,
+  event_prior = event_prior,
+  dropout_prior = dropout_prior,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+## 11. Covariate-adjusted non-cure models
+
+Covariates are currently supported for standard non-cure event and dropout models.
+
+To keep the example self-contained, the code below constructs a temporary data set with mock baseline covariates.
+
+```{r}
+set.seed(101)
+interim_cov <- as.data.frame(interimData2)
+interim_cov$age <- round(rnorm(nrow(interim_cov), mean = 62, sd = 8))
+interim_cov$sex <- factor(sample(c("Female", "Male"), nrow(interim_cov), replace = TRUE))
+
+pred_cov <- getPrediction(
+  df = interim_cov,
+  to_predict = "event only",
+  target_d = 200,
+  event_model = "weibull",
+  dropout_model = "exponential",
+  covariates_event = c("age", "sex"),
+  covariates_dropout = c("age"),
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+## 12. Cure-aware workflows
+
+This section focuses on the cure-model functionality that motivated your update request.
+
+### 12.1 Supported cure-aware event models
+
+The merged package supports the following mixture-cure event models in `fitEvent()` and `getPrediction()`:
+
+- `"exponential with cured population"`
+- `"weibull with cured population"`
+- `"log-normal with cured population"`
+- `"log-logistic with cured population"`
+- `"piecewise exponential with cured population"`
+
+In addition, delayed-treatment-effect variants are supported in design-stage prediction workflows:
+
+- `"exponential with cured population and delayed treatment"`
+- `"weibull with cured population and delayed treatment"`
+- `"log-normal with cured population and delayed treatment"`
+- `"log-logistic with cured population and delayed treatment"`
+- `"piecewise exponential with cured population and delayed treatment"`
+
+### 12.2 Fitting a cure model with estimated cure rate
+
+```{r}
+fit_event_cure_est <- fitEvent(
+  df = interimData2,
+  event_model = "weibull with cured population",
+  showplot = FALSE
+)
+```
+
+### 12.3 Fitting a cure model with fixed cure rate
+
+This is the new interface that should be documented explicitly.
+
+```{r}
+fit_event_cure_fixed <- fitEvent(
+  df = interimData2,
+  event_model = "weibull with cured population",
+  cure_rate = 0.25,
+  showplot = FALSE
+)
+```
+
+In the fitted object:
+
+- `fit_event_cure_fixed$fit$theta[1]` is `qlogis(0.25)`;
+- the first row and column of `vtheta` are zero;
+- only the uncured-population survival parameters are estimated.
+
+### 12.4 Fixed cure rate by treatment arm
+
+When `by_treatment = TRUE`, a scalar `cure_rate` applies to all arms, while a vector applies arm-specific cure fractions.
+
+```{r}
+fit_event_cure_fixed_by_trt <- fitEvent(
+  df = interimData2,
+  event_model = "weibull with cured population",
+  by_treatment = TRUE,
+  cure_rate = c(0.20, 0.35),
+  showplot = FALSE
+)
+```
+
+### 12.5 Piecewise exponential cure model with fixed cure rate
+
+```{r}
+fit_event_cure_piecewise_fixed <- fitEvent(
+  df = interimData2,
+  event_model = "piecewise exponential with cured population",
+  cure_rate = 0.30,
+  piecewiseSurvivalTime = c(0, 120, 240),
+  showplot = FALSE
+)
+```
+
+### 12.6 Event projection with fixed cure rate from observed data
+
+```{r}
+pred_event_cure_fixed <- getPrediction(
+  df = interimData2,
+  to_predict = "event only",
+  target_d = 200,
+  event_model = "weibull with cured population",
+  cure_rate = 0.25,
+  dropout_model = "exponential",
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+### 12.7 Design-stage projection with fixed cure rate
+
+When `cure_rate` is supplied, the design-stage `event_prior` for a cure model may omit the cure parameter and only provide the non-cure baseline parameters. The merged code pads the prior internally by inserting `qlogis(cure_rate)` as the first element of `theta` and a zero-variance row/column in `vtheta`.
+
+#### Weibull cure model example
+
+```{r}
+event_prior_cure_fixed <- list(
+  model = "weibull with cured population",
+  theta = c(log(1.2), log(300)),
+  vtheta = diag(c(1e-8, 1e-8))
+)
+
+pred_design_cure_fixed <- getPrediction(
+  df = NULL,
+  to_predict = "enrollment and event",
+  target_n = 300,
+  target_d = 200,
+  enroll_prior = design_enroll_fit,
+  event_prior = event_prior_cure_fixed,
+  dropout_prior = dropout_prior,
+  cure_rate = 0.30,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+#### Piecewise exponential cure model example
+
+```{r}
+event_prior_cure_fixed_pw <- list(
+  model = "piecewise exponential with cured population",
+  theta = log(c(0.0040, 0.0025, 0.0015)),
+  vtheta = diag(3) * 1e-8,
+  piecewiseSurvivalTime = c(0, 120, 240)
+)
+
+pred_design_cure_fixed_pw <- getPrediction(
+  df = NULL,
+  to_predict = "enrollment and event",
+  target_n = 300,
+  target_d = 200,
+  enroll_prior = design_enroll_fit,
+  event_prior = event_prior_cure_fixed_pw,
+  dropout_prior = dropout_prior,
+  cure_rate = 0.30,
+  pilevel = 0.90,
+  nreps = 200,
+  showsummary = TRUE,
+  showplot = FALSE
+)
+```
+
+### 12.8 Delayed treatment effect at the design stage
+
+The delayed-treatment-effect extensions are intended for **design-stage simulation**, not for fitting delayed-treatment models to observed data in `fitEvent()`.
+
+A typical design-stage specification is arm-specific and passed through `event_prior` when `by_treatment = TRUE`.
+
+```{r}
+event_prior_delay <- list()
+event_prior_delay[[1]] <- list(
+  model = "weibull with cured population and delayed treatment",
+  theta = c(qlogis(0.20), log(1.1), log(320), 0, 1),
+  vtheta = matrix(0, 5, 5)
+)
+event_prior_delay[[2]] <- list(
+  model = "weibull with cured population and delayed treatment",
+  theta = c(qlogis(0.35), log(1.1), log(320), 60, 0.70),
+  vtheta = matrix(0, 5, 5)
+)
+```
+
+The last two elements encode the delayed-effect portion in the EventPredInCure-style design-stage parameterization.
+
+## 13. By-treatment workflows
+
+Set `by_treatment = TRUE` to fit or predict separately by treatment arm.
+
+```{r}
+fit_event_by_trt <- fitEvent(
+  df = interimData2,
+  event_model = "weibull",
+  by_treatment = TRUE,
+  showplot = FALSE
+)
+
+fit_dropout_by_trt <- fitDropout(
+  df = interimData2,
+  dropout_model = "exponential",
+  by_treatment = TRUE,
+  showplot = FALSE
+)
+```
+
+At the design stage, by-treatment priors are typically supplied as one list element per treatment group.
+
+## 14. Model selection and practical guidance
+
+A practical model-selection strategy is:
+
+1. start with `summarizeObserved()`;
+2. compare several enrollment/event/dropout models;
+3. use fitted plots together with AIC/BIC;
+4. favor clinically interpretable models when several fits are similar;
+5. use cure models only when a long-term plateau is scientifically plausible;
+6. reserve delayed-treatment-effect models for planning scenarios where non-proportional hazards are expected.
+
+Some practical rules of thumb:
+
+- use `piecewise exponential` when hazard phases are clinically meaningful;
+- use `model averaging` when Weibull and log-normal are both credible extrapolation candidates;
+- use `cox` when semiparametric fitting is desired but forward projection is still required;
+- use `fix_parameter = TRUE` for deterministic scenario summaries;
+- use `target_t` in `getPrediction()` or `predictEvent()` when you need the predictive probability of reaching the event target by a specific future time.
+
+## 15. Current implementation limitations in the merged package
+
+Users should be aware of the following current constraints.
+
+- Cure-aware event models do **not** currently support `covariates_event`.
+- `event_prior_with_covariates` is not supported for cure-aware or delayed-treatment event models.
+- Pooling treatment-specific `event_prior` objects into an overall prior is not supported for cure-aware models.
+- Delayed-treatment-effect models are intended for design-stage simulation workflows, not observed-data fitting via `fitEvent()`.
+- Dropout models do not currently have cure-aware or delayed-treatment-effect extensions.
+
+These limitations are implementation choices in the current merged package rather than general limitations of the underlying statistical literature.
+
+## 16. Reproducibility
+
+For reproducible simulation output:
+
+1. call `set.seed()` immediately before `predictEnrollment()`, `predictEvent()`, or `getPrediction()`; or
+2. use `seed.num` where available.
+
+When exact upstream comparison is important, a good working expectation is:
+
+- non-cure, non-delay branches should match `eventPred` most closely;
+- cure-aware or delayed-treatment-effect branches should match `EventPredInCure` most closely.
+
+Minor differences may still arise when merged validation, numerical safeguards, or edge-case handling differ.
+
+## 17. Additional simulation utilities
+
+The package also includes utilities inherited from the cure-oriented workflow:
+
+- `FH_test()`
+- `tte()`
+- `test_procedure()`
+- `test_plot()`
+- `Chen_2016_event_time()` and related helpers
+- cure-model survival-probability and log-likelihood helpers such as `SP_Chen_weibull()` and `loglik_Chen_weibull()`
+
+These are most useful for simulation studies and operating-characteristic evaluation rather than routine projection alone.
+
+## 18. Session information
+
+```{r}
+sessionInfo()
+```
+
+## 19. References
+
+Bagiella, E. and Heitjan, D. F. (2001). Predicting analysis times in randomized clinical trials. *Statistics in Medicine*, 20, 2055-2063.
+
+Chen, T.-T. (2016). Predicting analysis times in randomized clinical trials with cancer immunotherapy. *BMC Medical Research Methodology*, 16, 1-10.
+
+Royston, P. and Parmar, M. K. B. (2002). Flexible parametric proportional-hazards and proportional-odds models for censored survival data, with application to prognostic modelling and estimation of treatment effects. *Statistics in Medicine*, 21, 2175-2197.
+
+Ying, G.-S. and Heitjan, D. F. (2008). Weibull prediction of event times in clinical trials. *Pharmaceutical Statistics*, 7, 107-120.
+
+Zhang, X. and Long, Q. (2010). Stochastic modeling and prediction for accrual in clinical trials. *Statistics in Medicine*, 29, 649-658.

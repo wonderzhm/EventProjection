@@ -1,0 +1,14 @@
+"0","pred_event_complete <- predictEvent("
+"0","  df = interimData2,"
+"0","  target_d = 200,"
+"0","  event_fit = fit_event_piecewise$fit,"
+"0","  dropout_fit = fit_dropout_exp$fit,"
+"0","  pilevel = 0.90,"
+"0","  nreps = 200,"
+"0","  showsummary = TRUE,"
+"0","  showplot = FALSE"
+"0",")"
+"1","Time from cutoff until 200 events: 140 days 
+ Median prediction date: 2021-03-09 
+ Prediction interval: 2021-01-11, 2021-05-14 
+"

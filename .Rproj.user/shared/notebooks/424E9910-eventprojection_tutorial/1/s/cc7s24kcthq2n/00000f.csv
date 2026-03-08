@@ -1,0 +1,21 @@
+"0","pred_full_interim <- getPrediction("
+"0","  df = interimData1,"
+"0","  to_predict = ""enrollment and event"","
+"0","  target_n = 300,"
+"0","  target_d = 200,"
+"0","  enroll_model = ""time-decay"","
+"0","  event_model = ""weibull"","
+"0","  dropout_model = ""exponential"","
+"0","  pilevel = 0.90,"
+"0","  nreps = 200,"
+"0","  showsummary = TRUE,"
+"0","  showplot = FALSE"
+"0",")"
+"1","Time from cutoff until 300 subjects: 70 days 
+ Median prediction date: 2019-05-09 
+ Prediction interval: 2019-04-24, 2019-06-20 
+"
+"1","Time from cutoff until 200 events: 830 days 
+ Median prediction date: 2021-06-07 
+ Prediction interval: 2020-06-16, 2023-07-23 
+"

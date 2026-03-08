@@ -1,0 +1,22 @@
+"0","set.seed(101)"
+"0","interim_cov <- as.data.frame(interimData2)"
+"0","interim_cov$age <- round(rnorm(nrow(interim_cov), mean = 62, sd = 8))"
+"0","interim_cov$sex <- factor(sample(c(""Female"", ""Male""), nrow(interim_cov), replace = TRUE))"
+"0",""
+"0","pred_cov <- getPrediction("
+"0","  df = interim_cov,"
+"0","  to_predict = ""event only"","
+"0","  target_d = 200,"
+"0","  event_model = ""weibull"","
+"0","  dropout_model = ""exponential"","
+"0","  covariates_event = c(""age"", ""sex""),"
+"0","  covariates_dropout = c(""age""),"
+"0","  pilevel = 0.90,"
+"0","  nreps = 200,"
+"0","  showsummary = TRUE,"
+"0","  showplot = FALSE"
+"0",")"
+"1","Time from cutoff until 200 events: 136 days 
+ Median prediction date: 2021-03-05 
+ Prediction interval: 2021-01-14, 2021-05-04 
+"

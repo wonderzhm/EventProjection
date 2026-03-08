@@ -1,0 +1,7 @@
+"0","fit_event_cure_piecewise_fixed <- fitEvent("
+"0","  df = interimData2,"
+"0","  event_model = ""piecewise exponential with cured population"","
+"0","  cure_rate = 0.30,"
+"0","  piecewiseSurvivalTime = c(0, 120, 240),"
+"0","  showplot = FALSE"
+"0",")"

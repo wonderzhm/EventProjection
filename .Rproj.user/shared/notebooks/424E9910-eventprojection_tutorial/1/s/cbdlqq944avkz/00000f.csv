@@ -1,0 +1,5 @@
+"0","fit_event_cure_est <- fitEvent("
+"0","  df = interimData2,"
+"0","  event_model = ""weibull with cured population"","
+"0","  showplot = FALSE"
+"0",")"

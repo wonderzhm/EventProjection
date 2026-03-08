@@ -1,0 +1,19 @@
+"0","design_enroll_fit <- list("
+"0","  model = ""piecewise poisson"","
+"0","  theta = log(26 / 9 * seq(1, 9) / 30.4375),"
+"0","  vtheta = diag(9) * 1e-8,"
+"0","  accrualTime = seq(0, 8) * 30.4375"
+"0",")"
+"0",""
+"0","design_enroll_pred <- predictEnrollment("
+"0","  target_n = 300,"
+"0","  enroll_fit = design_enroll_fit,"
+"0","  pilevel = 0.90,"
+"0","  nreps = 200,"
+"0","  showsummary = TRUE,"
+"0","  showplot = FALSE"
+"0",")"
+"1","Time from trial start until 300 subjects 
+ Median prediction day: 469 
+ Prediction interval: 441, 505 
+"
