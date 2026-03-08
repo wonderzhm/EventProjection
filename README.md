@@ -16,7 +16,7 @@ Predicts enrollment and event outcomes at the design or interim-analysis stage u
 You can install the package from GitHub:
 ```r
 library(devtools)
-devtools::install_github("wonderzhm/EventProjection")
+devtools::install_github("wonderzhm/EventProjection", build_vignettes = TRUE, upgrade = "never")
 ```
 If you want to run the Shiny app, install the optional app dependencies as well:
 
