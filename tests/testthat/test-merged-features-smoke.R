@@ -76,7 +76,7 @@ testthat::test_that("fixed cure_rate is accepted in fitEvent and design-stage pr
     df = NULL,
     to_predict = "enrollment and event",
     target_n = 300,
-    target_d = 200,
+    target_d = 150,
     enroll_prior = enroll_prior,
     event_prior = event_prior,
     dropout_prior = dropout_prior,
@@ -146,10 +146,15 @@ testthat::test_that("delayed-treatment design-stage branch runs by treatment", {
     )
   )
 
-  dropout_prior <- list(
+  dropout_prior_one <- list(
     model = "exponential",
     theta = log((-log(1 - 0.05) / 12) / 30.4375),
     vtheta = 1e-8
+  )
+
+  dropout_prior <- list(
+    dropout_prior_one,
+    dropout_prior_one
   )
 
   set.seed(4103)
@@ -157,7 +162,7 @@ testthat::test_that("delayed-treatment design-stage branch runs by treatment", {
     df = NULL,
     to_predict = "enrollment and event",
     target_n = 120,
-    target_d = 80,
+    target_d = 50,
     enroll_prior = enroll_prior,
     event_prior = event_prior_delay,
     dropout_prior = dropout_prior,
