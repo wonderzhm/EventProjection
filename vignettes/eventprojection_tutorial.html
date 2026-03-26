@@ -1419,23 +1419,19 @@ most closely;</li>
 <p>Minor differences may still arise when merged validation, numerical
 safeguards, or edge-case handling differ.</p>
 </div>
-<div id="additional-simulation-utilities" class="section level2">
-<h2>17. Additional simulation utilities</h2>
-<p>The package also includes utilities inherited from the cure-oriented
-workflow:</p>
+<div id="additional-internal-modeling-helpers" class="section level2">
+<h2>17. Additional internal modeling helpers</h2>
+<p>The package also includes lower-level helpers that support cure-aware
+event modeling and simulation, including:</p>
 <ul>
-<li><code>FH_test()</code></li>
-<li><code>tte()</code></li>
-<li><code>test_procedure()</code></li>
-<li><code>test_plot()</code></li>
 <li><code>Chen_2016_event_time()</code> and related helpers</li>
-<li>cure-model survival-probability and log-likelihood helpers such as
-<code>SP_Chen_weibull()</code> and
+<li>cure-model survival-probability helpers such as
+<code>SP_Chen_weibull()</code></li>
+<li>cure-model log-likelihood helpers such as
 <code>loglik_Chen_weibull()</code></li>
 </ul>
-<p>These are most useful for simulation studies and
-operating-characteristic evaluation rather than routine projection
-alone.</p>
+<p>These are primarily implementation-level utilities that support the
+higher-level fitting and prediction interfaces.</p>
 </div>
 <div id="session-information" class="section level2">
 <h2>18. Session information</h2>

@@ -106,3 +106,34 @@ testthat::test_that("event prediction after enrollment completion", {
 
   testthat::expect_equal(a, b)
 })
+
+
+testthat::test_that("event prediction can omit large subject-level output", {
+  set.seed(3000)
+
+  event_fits <- fitEvent(
+    df = interimData2,
+    event_model = "piecewise exponential",
+    piecewiseSurvivalTime = c(0, 140, 352),
+    showplot = FALSE)
+
+  dropout_fits <- fitDropout(
+    df = interimData2,
+    dropout_model = "exponential",
+    showplot = FALSE)
+
+  pred1 <- predictEvent(
+    df = interimData2, target_d = 200,
+    event_fit = event_fits$fit,
+    dropout_fit = dropout_fits$fit,
+    pilevel = 0.90, nreps = 20,
+    showsummary = FALSE, showplot = FALSE,
+    return_new_events = FALSE)
+
+  testthat::expect_false("newEvents" %in% names(pred1))
+  testthat::expect_true("enroll_pred_df" %in% names(pred1))
+  testthat::expect_true("event_pred_df" %in% names(pred1))
+  testthat::expect_true("dropout_pred_df" %in% names(pred1))
+  testthat::expect_true("ongoing_pred_df" %in% names(pred1))
+  testthat::expect_true("event_pred_day" %in% names(pred1))
+})

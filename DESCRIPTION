@@ -1,7 +1,7 @@
 Package: EventProjection
 Title: Event Projection
-Version: 0.2.9.1
-Date: 2026-03-07
+Version: 0.2.9.2
+Date: 2026-03-26
 Authors@R: c(
     person("Haiming", "Zhou", role = c("aut", "cre"),
            email = "haiming2019@gmail.com"),

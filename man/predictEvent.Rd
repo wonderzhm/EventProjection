@@ -32,7 +32,8 @@ predictEvent(
   fix_parameter = FALSE,
   generate_plot = TRUE,
   interactive_plot = TRUE,
-  seed.num = NULL
+  seed.num = NULL,
+  return_new_events = TRUE
 )
 }
 \arguments{
@@ -138,6 +139,10 @@ plotly or static plots using ggplot2.}
 \item{seed.num}{Optional integer seed for reproducible simulation. If
 provided (non-\code{NULL}), \code{set.seed(seed.num)} is called at the
 start of the function. If \code{NULL} (default), no seed is set.}
+
+\item{return_new_events}{Logical; if \code{TRUE} (default), keep the
+subject-level simulated event data in the returned object. Setting this
+to \code{FALSE} can reduce memory use for large \code{nreps}.}
 }
 \value{
 A list of prediction results which includes important

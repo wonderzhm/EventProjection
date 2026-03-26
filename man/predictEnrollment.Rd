@@ -21,7 +21,8 @@ predictEnrollment(
   fix_parameter = FALSE,
   generate_plot = TRUE,
   interactive_plot = TRUE,
-  seed.num = NULL
+  seed.num = NULL,
+  return_new_subjects = TRUE
 )
 }
 \arguments{
@@ -85,12 +86,16 @@ their approximate posterior distributions.}
 plotly or static plots using ggplot2.}
 
 \item{seed.num}{Optional integer random seed for reproducible simulation. If \code{NULL}, no seed is set.}
+
+\item{return_new_subjects}{Logical; if \code{TRUE} (default), keep the
+subject-level simulated enrollment data in the returned object.
+Setting this to \code{FALSE} can reduce memory use for large \code{nreps}.}
 }
 \value{
 A list of prediction results, which includes important information
 such as the median, lower and upper percentiles for the estimated
 time to reach the target number of subjects, as well as simulated
-enrollment data for new subjects. The data for the
+enrollment data for new subjects. The summarized data for the
 prediction plot is also included within the list.
 }
 \description{

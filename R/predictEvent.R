@@ -80,6 +80,9 @@
 #' @param seed.num Optional integer seed for reproducible simulation. If
 #'   provided (non-\code{NULL}), \code{set.seed(seed.num)} is called at the
 #'   start of the function. If \code{NULL} (default), no seed is set.
+#' @param return_new_events Logical; if \code{TRUE} (default), keep the
+#'   subject-level simulated event data in the returned object. Setting this
+#'   to \code{FALSE} can reduce memory use for large \code{nreps}.
 #'
 #' @details
 #' This merged implementation is based on the original \code{predictEvent()} from the
@@ -175,7 +178,8 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
                          dropout_fit_with_covariates = NULL,
                          fix_parameter = FALSE,
                          generate_plot = TRUE,
-                         interactive_plot = TRUE, seed.num = NULL) {
+                         interactive_plot = TRUE, seed.num = NULL,
+                         return_new_events = TRUE) {
   .old_options <- options(datatable.showProgress = FALSE)
   on.exit(options(.old_options), add = TRUE)
   
@@ -185,6 +189,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
   if (is.null(df) && is.null(newSubjects)) {
     stop("At least one of df and newSubjects must be specified")
   }
+  erify::check_bool(return_new_events)
   
   # Optional reproducibility control (adapted from EventPredInCure)
   if (!is.null(seed.num)) {
@@ -747,20 +752,12 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
   # enrollment prediction data
   if (!by_treatment) {
     if (!is.null(newSubjects)) {
-      # predicted number of subjects enrolled after data cut
-      dfb1 <- merge(
-        data.table::data.table(t = t, dummy = 1),
-        data.table::copy(nt)[, `:=`(dummy = 1)],
-        by = "dummy", allow.cartesian = TRUE)[
-          , list(nenrolled = sum(get("arrivalTime") <= get("t")) + n0),
-          by = c("t", "draw")][
-            , list(n = quantile(get("nenrolled"), probs = 0.5),
-                   pilevel = pilevel,
-                   lower = quantile(get("nenrolled"), probs = plower),
-                   upper = quantile(get("nenrolled"), probs = pupper),
-                   mean = mean(get("nenrolled")),
-                   var = var(get("nenrolled"))),
-            by = "t"]
+      dfb1 <- .ep_summarize_count_matrix(
+        .ep_count_matrix_from_values(nt, "arrivalTime", t, nreps),
+        t,
+        pilevel
+      )
+      dfb1 <- .ep_add_summary_offset(dfb1, n0)
     }
     
     if (!is.null(df)) {
@@ -833,23 +830,25 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
                  n0 = 0, d0 = 0, c0 = 0, r0 = 0)]
       }
       
-      # predicted number of subjects enrolled by treatment after cutoff
-      dfb1 <- merge(
-        data.table::data.table(t = t, dummy = 1),
-        data.table::copy(newSubjects2)[, `:=`(dummy = 1)],
-        by = "dummy", allow.cartesian = TRUE)[
-          , list(nenrolled = sum(get("arrivalTime") <= get("t"))),
-          by = c("treatment", "treatment_description", "t", "draw")]
-      
-      dfb1 <- merge(dfb1, sum_by_trt, by = trtcols, all.x = TRUE)[
-        , `:=`(nenrolled = get("nenrolled") + get("n0"))][
-          , list(n = quantile(get("nenrolled"), probs = 0.5),
-                 pilevel = pilevel,
-                 lower = quantile(get("nenrolled"), probs = plower),
-                 upper = quantile(get("nenrolled"), probs = pupper),
-                 mean = mean(get("nenrolled")),
-                 var = var(get("nenrolled"))),
-          by = c("treatment", "treatment_description", "t")]
+      dfb1_list <- lapply(seq_len(nrow(sum_by_trt)), function(i) {
+        trt_i <- sum_by_trt$treatment[i]
+        desc_i <- sum_by_trt$treatment_description[i]
+        sim_dt <- if (trt_i == 9999) {
+          nt
+        } else {
+          nt[get("treatment") == trt_i]
+        }
+        
+        out_i <- .ep_summarize_count_matrix(
+          .ep_count_matrix_from_values(sim_dt, "arrivalTime", t, nreps),
+          t,
+          pilevel
+        )
+        out_i <- .ep_add_summary_offset(out_i, sum_by_trt$n0[i])
+        out_i[, `:=`(treatment = trt_i, treatment_description = desc_i)]
+        out_i
+      })
+      dfb1 <- data.table::rbindlist(dfb1_list, use.names = TRUE)
     }
     
     
@@ -1843,20 +1842,6 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
   newEvents <- newEvents[, `:=`(
     totalTime = get("arrivalTime") + get("time") - 1)]
   
-  if (!is.null(df)) {
-    # combined stopped, ongoing and new subjects
-    allSubjects <- data.table::rbindlist(list(
-      merge(data.table::data.table(draw = 1:nreps, dummy = 1),
-            data.table::copy(stoppedSubjects)[, `:=`(dummy = 1)],
-            by = "dummy", allow.cartesian = TRUE)[
-              , mget(c("draw", "usubjid", "arrivalTime",
-                       "treatment", "treatment_description",
-                       "time", "event", "dropout", "totalTime"))],
-      newEvents), use.names = TRUE)
-  } else {
-    allSubjects <- newEvents
-  }
-  
   # remove the dummy treatment from newEvents
   if (!by_treatment) {
     newEvents[, (c("treatment", "treatment_description")) := NULL]
@@ -1958,45 +1943,39 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
   }
   
   if (!by_treatment) {
-    # number of events, dropouts, and ongoing subjects after data cut
-    df1 = merge(
-      data.table::data.table(t = t, dummy = 1),
-      data.table::copy(allSubjects)[, `:=`(dummy = 1)],
-      by = "dummy", allow.cartesian = TRUE)[
-        , list(nevents = sum(get("totalTime") <= get("t") &
-                               get("event")),
-               ndropouts = sum(get("totalTime") <= get("t") &
-                                 get("dropout")),
-               nongoing = sum(get("arrivalTime") <= get("t") &
-                                get("totalTime") > get("t"))),
-        by = c("t", "draw")]
+    event_count_mat <- .ep_count_matrix_from_values(
+      newEvents[get("event") == 1],
+      "totalTime",
+      t,
+      nreps
+    )
+    dropout_count_mat <- .ep_count_matrix_from_values(
+      newEvents[get("dropout") == 1],
+      "totalTime",
+      t,
+      nreps
+    )
+    arrival_count_mat <- .ep_count_matrix_from_values(
+      newEvents,
+      "arrivalTime",
+      t,
+      nreps
+    )
+    completed_count_mat <- .ep_count_matrix_from_values(
+      newEvents,
+      "totalTime",
+      t,
+      nreps
+    )
+    ongoing_count_mat <- arrival_count_mat - completed_count_mat
     
-    # predicted number of events after data cut
-    dfb2 = df1[, list(n = quantile(get("nevents"), probs = 0.5),
-                      pilevel = pilevel,
-                      lower = quantile(get("nevents"), probs = plower),
-                      upper = quantile(get("nevents"), probs = pupper),
-                      mean = mean(get("nevents")),
-                      var = var(get("nevents"))),
-               by = c("t")]
+    dfb2 <- .ep_summarize_count_matrix(event_count_mat, t, pilevel)
+    dfb2 <- .ep_add_summary_offset(dfb2, d0)
     
-    # predicted number of dropouts after data cut
-    dfb3 = df1[, list(n = quantile(get("ndropouts"), probs = 0.5),
-                      pilevel = pilevel,
-                      lower = quantile(get("ndropouts"), probs = plower),
-                      upper = quantile(get("ndropouts"), probs = pupper),
-                      mean = mean(get("ndropouts")),
-                      var = var(get("ndropouts"))),
-               by = c("t")]
+    dfb3 <- .ep_summarize_count_matrix(dropout_count_mat, t, pilevel)
+    dfb3 <- .ep_add_summary_offset(dfb3, c0)
     
-    # predicted number of subjects at risk after data cut
-    dfb4 = df1[, list(n = quantile(get("nongoing"), probs = 0.5),
-                      pilevel = pilevel,
-                      lower = quantile(get("nongoing"), probs = plower),
-                      upper = quantile(get("nongoing"), probs = pupper),
-                      mean = mean(get("nongoing")),
-                      var = var(get("nongoing"))),
-               by = c("t")]
+    dfb4 <- .ep_summarize_count_matrix(ongoing_count_mat, t, pilevel)
     
     if (!is.null(df)) {
       # day 1
@@ -2372,51 +2351,58 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       }
     }
   } else {  # by treatment
-    # add overall treatment
-    allSubjects2 <- data.table::rbindlist(list(
-      allSubjects, data.table::copy(allSubjects)[, `:=`(
-        treatment = 9999, treatment_description = "Overall")]),
-      use.names = TRUE)
+    dfb_list <- lapply(seq_len(nrow(sum_by_trt)), function(i) {
+      trt_i <- sum_by_trt$treatment[i]
+      desc_i <- sum_by_trt$treatment_description[i]
+      sim_dt <- if (trt_i == 9999) {
+        newEvents
+      } else {
+        newEvents[get("treatment") == trt_i]
+      }
+      
+      event_count_mat <- .ep_count_matrix_from_values(
+        sim_dt[get("event") == 1],
+        "totalTime",
+        t,
+        nreps
+      )
+      dropout_count_mat <- .ep_count_matrix_from_values(
+        sim_dt[get("dropout") == 1],
+        "totalTime",
+        t,
+        nreps
+      )
+      arrival_count_mat <- .ep_count_matrix_from_values(
+        sim_dt,
+        "arrivalTime",
+        t,
+        nreps
+      )
+      completed_count_mat <- .ep_count_matrix_from_values(
+        sim_dt,
+        "totalTime",
+        t,
+        nreps
+      )
+      ongoing_count_mat <- arrival_count_mat - completed_count_mat
+      
+      event_dt <- .ep_summarize_count_matrix(event_count_mat, t, pilevel)
+      event_dt <- .ep_add_summary_offset(event_dt, sum_by_trt$d0[i])
+      event_dt[, `:=`(treatment = trt_i, treatment_description = desc_i)]
+      
+      dropout_dt <- .ep_summarize_count_matrix(dropout_count_mat, t, pilevel)
+      dropout_dt <- .ep_add_summary_offset(dropout_dt, sum_by_trt$c0[i])
+      dropout_dt[, `:=`(treatment = trt_i, treatment_description = desc_i)]
+      
+      ongoing_dt <- .ep_summarize_count_matrix(ongoing_count_mat, t, pilevel)
+      ongoing_dt[, `:=`(treatment = trt_i, treatment_description = desc_i)]
+      
+      list(event = event_dt, dropout = dropout_dt, ongoing = ongoing_dt)
+    })
     
-    # number of events, dropouts, and ongoing subjects after data cut
-    df1 = merge(
-      data.table::data.table(t = t, dummy = 1),
-      data.table::copy(allSubjects2)[, `:=`(dummy = 1)],
-      by = "dummy", allow.cartesian = TRUE)[
-        , list(nevents = sum(get("totalTime") <= get("t") &
-                               get("event")),
-               ndropouts = sum(get("totalTime") <= get("t") &
-                                 get("dropout")),
-               nongoing = sum(get("arrivalTime") <= get("t") &
-                                get("totalTime") > get("t"))),
-        by = c("treatment", "treatment_description", "t", "draw")]
-    
-    # predicted number of events after data cut
-    dfb2 = df1[, list(n = quantile(get("nevents"), probs = 0.5),
-                      pilevel = pilevel,
-                      lower = quantile(get("nevents"), probs = plower),
-                      upper = quantile(get("nevents"), probs = pupper),
-                      mean = mean(get("nevents")),
-                      var = var(get("nevents"))),
-               by = trttcols]
-    
-    # predicted number of dropouts after data cut
-    dfb3 = df1[, list(n = quantile(get("ndropouts"), probs = 0.5),
-                      pilevel = pilevel,
-                      lower = quantile(get("ndropouts"), probs = plower),
-                      upper = quantile(get("ndropouts"), probs = pupper),
-                      mean = mean(get("ndropouts")),
-                      var = var(get("ndropouts"))),
-               by = trttcols]
-    
-    # predicted number of subjects at risk after data cut
-    dfb4 = df1[, list(n = quantile(get("nongoing"), probs = 0.5),
-                      pilevel = pilevel,
-                      lower = quantile(get("nongoing"), probs = plower),
-                      upper = quantile(get("nongoing"), probs = pupper),
-                      mean = mean(get("nongoing")),
-                      var = var(get("nongoing"))),
-               by = trttcols]
+    dfb2 <- data.table::rbindlist(lapply(dfb_list, `[[`, "event"), use.names = TRUE)
+    dfb3 <- data.table::rbindlist(lapply(dfb_list, `[[`, "dropout"), use.names = TRUE)
+    dfb4 <- data.table::rbindlist(lapply(dfb_list, `[[`, "ongoing"), use.names = TRUE)
     
     
     if (!is.null(df)) {
@@ -2856,57 +2842,34 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
                         showDropout || showOngoing) && showplot) print(g1)
   
   if (!is.null(df)) {
-    if (generate_plot && (showEnrollment || showEvent ||
-                          showDropout || showOngoing)) {
-      out <- list(
-        target_d = target_d,
-        cutoffdt = cutoffdt, cutofftpdt = cutofftpdt,
-        event_pred_day = pred_day, event_pred_date = pred_date,
-        pilevel = pilevel, nyears = nyears, nreps = nreps,
-        newEvents = newEvents,
-        enroll_pred_df = enroll_pred_df,
-        event_pred_df = event_pred_df,
-        dropout_pred_df = dropout_pred_df,
-        ongoing_pred_df = ongoing_pred_df,
-        event_pred_summary = s1, event_pred_plot = g1)
-    } else {
-      out <- list(
-        target_d = target_d,
-        cutoffdt = cutoffdt, cutofftpdt = cutofftpdt,
-        event_pred_day = pred_day, event_pred_date = pred_date,
-        pilevel = pilevel, nyears = nyears, nreps = nreps,
-        newEvents = newEvents,
-        enroll_pred_df = enroll_pred_df,
-        event_pred_df = event_pred_df,
-        dropout_pred_df = dropout_pred_df,
-        ongoing_pred_df = ongoing_pred_df,
-        event_pred_summary = s1)
-    }
+    out <- list(
+      target_d = target_d,
+      cutoffdt = cutoffdt, cutofftpdt = cutofftpdt,
+      event_pred_day = pred_day, event_pred_date = pred_date,
+      pilevel = pilevel, nyears = nyears, nreps = nreps,
+      event_pred_summary = s1
+    )
   } else {
-    if (generate_plot && (showEnrollment || showEvent ||
-                          showDropout || showOngoing)) {
-      out <- list(
-        target_d = target_d,
-        event_pred_day = pred_day,
-        pilevel = pilevel, nyears = nyears, nreps = nreps,
-        newEvents = newEvents,
-        enroll_pred_df = enroll_pred_df,
-        event_pred_df = event_pred_df,
-        dropout_pred_df = dropout_pred_df,
-        ongoing_pred_df = ongoing_pred_df,
-        event_pred_summary = s1, event_pred_plot = g1)
-    } else {
-      out <- list(
-        target_d = target_d,
-        event_pred_day = pred_day,
-        pilevel = pilevel, nyears = nyears, nreps = nreps,
-        newEvents = newEvents,
-        enroll_pred_df = enroll_pred_df,
-        event_pred_df = event_pred_df,
-        dropout_pred_df = dropout_pred_df,
-        ongoing_pred_df = ongoing_pred_df,
-        event_pred_summary = s1)
-    }
+    out <- list(
+      target_d = target_d,
+      event_pred_day = pred_day,
+      pilevel = pilevel, nyears = nyears, nreps = nreps,
+      event_pred_summary = s1
+    )
+  }
+  
+  if (return_new_events) {
+    out$newEvents <- newEvents
+  }
+  
+  out$enroll_pred_df <- enroll_pred_df
+  out$event_pred_df <- event_pred_df
+  out$dropout_pred_df <- dropout_pred_df
+  out$ongoing_pred_df <- ongoing_pred_df
+  
+  if (generate_plot && (showEnrollment || showEvent ||
+                        showDropout || showOngoing)) {
+    out$event_pred_plot <- g1
   }
   
   if (!all(is.na(target_t))) {

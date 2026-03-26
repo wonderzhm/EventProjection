@@ -159,6 +159,14 @@
 #'   \code{by_treatment=TRUE}, \code{cure_rate} may be a numeric vector of length
 #'   \code{ngroups}, with each element corresponding to one treatment arm.
 #'   UPDATED (merge): new feature to support fixed cure rates.
+#' @param return_subject_data Logical; if \code{TRUE} (default), keep the
+#'   combined subject-level simulation output in the returned object. Setting
+#'   this to \code{FALSE} can materially reduce memory use for large
+#'   \code{nreps}.
+#' @param return_simulation_data Logical; if \code{TRUE} (default), keep nested
+#'   subject-level simulated data such as \code{newSubjects} and
+#'   \code{newEvents} in \code{enroll_pred} and \code{event_pred}. Setting this
+#'   to \code{FALSE} reduces the size of the returned object.
 #'
 #' @details
 #' For the time-decay model, the mean function is
@@ -215,7 +223,9 @@
 #' Please retain original package authorship/credit per upstream licenses.
 #' @return A list that includes the fits of observed data models,
 #' as well as simulated enrollment data for new subjects and
-#' simulated event data for ongoing and new subjects.
+#' simulated event data for ongoing and new subjects. Large returned simulation
+#' objects can be omitted with \code{return_subject_data} and
+#' \code{return_simulation_data}.
 #'
 #'
 #' This merged implementation is based on the original \code{getPrediction()}
@@ -275,7 +285,9 @@ getPrediction <- function(
     interactive_plot = TRUE,
     criterion = "both",
     seed.num = NULL,
-    cure_rate = NULL
+    cure_rate = NULL,
+    return_subject_data = TRUE,
+    return_simulation_data = TRUE
 ) {
   .old_options <- options(datatable.showProgress = FALSE)
   on.exit(options(.old_options), add = TRUE)
@@ -293,6 +305,8 @@ getPrediction <- function(
     stop("At least one of target_n and target_d must be specified")
   if (!is.na(target_n) && !is.na(target_d) && target_d > target_n)
     stop("target_d cannot exceed target_n")
+  erify::check_bool(return_subject_data)
+  erify::check_bool(return_simulation_data)
 
 
   # check by_treatment, ngroups, and alloc
@@ -364,6 +378,35 @@ getPrediction <- function(
   if (!is.null(treatment_label) && length(treatment_label) != ngroups) {
     stop(paste("length of treatment_label must be equal to",
                "the number of treatments"))
+  }
+  
+  needs_event_prediction <- grepl("event", to_predict, ignore.case = TRUE)
+  needs_enrollment_subjects <- needs_event_prediction ||
+    return_simulation_data || return_subject_data
+  needs_event_subjects <- return_simulation_data || return_subject_data
+  enroll_pred <- NULL
+  event_pred <- NULL
+  subject_data <- NULL
+  
+  .trim_prediction_output <- function(pred) {
+    if (is.null(pred)) {
+      return(pred)
+    }
+    
+    if (!return_simulation_data) {
+      pred$newSubjects <- NULL
+      pred$newEvents <- NULL
+    }
+    
+    pred
+  }
+  
+  .build_output <- function(...) {
+    out <- list(...)
+    if (return_subject_data) {
+      out$subject_data <- subject_data
+    }
+    out
   }
 
 
@@ -1091,7 +1134,8 @@ getPrediction <- function(
         fix_parameter = fix_parameter,
         generate_plot = generate_plot,
         interactive_plot = interactive_plot,
-        seed.num = seed.num  # UPDATED (merge)
+        seed.num = seed.num,  # UPDATED (merge)
+        return_new_subjects = needs_enrollment_subjects
       )
     } else {
       # enrollment prediction at the design stage
@@ -1112,7 +1156,8 @@ getPrediction <- function(
         fix_parameter = fix_parameter,
         generate_plot = generate_plot,
         interactive_plot = interactive_plot,
-        seed.num = seed.num  # UPDATED (merge)
+        seed.num = seed.num,  # UPDATED (merge)
+        return_new_subjects = needs_enrollment_subjects
       )
     }
   }
@@ -1925,7 +1970,8 @@ getPrediction <- function(
             fix_parameter = fix_parameter,
             generate_plot = generate_plot,
             interactive_plot = interactive_plot,
-            seed.num = seed.num  # UPDATED (merge)
+            seed.num = seed.num,  # UPDATED (merge)
+            return_new_events = needs_event_subjects
           )
         } else {
           event_pred <- predictEvent(
@@ -1956,7 +2002,8 @@ getPrediction <- function(
             fix_parameter = fix_parameter,
             generate_plot = generate_plot,
             interactive_plot = interactive_plot,
-            seed.num = seed.num  # UPDATED (merge)
+            seed.num = seed.num,  # UPDATED (merge)
+            return_new_events = needs_event_subjects
           )
         }
       } else {  # no dropout model
@@ -1988,7 +2035,8 @@ getPrediction <- function(
             dropout_fit_with_covariates = NULL,
             generate_plot = generate_plot,
             interactive_plot = interactive_plot,
-            seed.num = seed.num  # UPDATED (merge)
+            seed.num = seed.num,  # UPDATED (merge)
+            return_new_events = needs_event_subjects
           )
         } else {
           event_pred <- predictEvent(
@@ -2018,7 +2066,8 @@ getPrediction <- function(
             dropout_fit_with_covariates = NULL,
             generate_plot = generate_plot,
             interactive_plot = interactive_plot,
-            seed.num = seed.num  # UPDATED (merge)
+            seed.num = seed.num,  # UPDATED (merge)
+            return_new_events = needs_event_subjects
           )
         }
 
@@ -2053,7 +2102,8 @@ getPrediction <- function(
           fix_parameter = fix_parameter,
           generate_plot = generate_plot,
           interactive_plot = interactive_plot,
-          seed.num = seed.num  # UPDATED (merge)
+          seed.num = seed.num,  # UPDATED (merge)
+          return_new_events = needs_event_subjects
         )
       } else {
         event_pred <- predictEvent(
@@ -2084,7 +2134,8 @@ getPrediction <- function(
           fix_parameter = fix_parameter,
           generate_plot = generate_plot,
           interactive_plot = interactive_plot,
-          seed.num = seed.num  # UPDATED (merge)
+          seed.num = seed.num,  # UPDATED (merge)
+          return_new_events = needs_event_subjects
         )
 
       }
@@ -2093,55 +2144,60 @@ getPrediction <- function(
 
 
   # obtain subject-level data from all subjects
-  if (tolower(to_predict) == "enrollment only") {
-    subject_data <- enroll_pred$newSubjects
-    if (!is.null(df)) {
-      dt[, `:=`(arrivalTime = as.numeric(get("randdt") - get("trialsdt")+1))]
-
-      if (by_treatment) {
-        subject_data <- data.table::rbindlist(list(
-          dt[, `:=`(draw = 0)][
-            , mget(c("draw", "usubjid", "arrivalTime",
-                     "treatment", "treatment_description"))],
-          subject_data), use.names = TRUE)
-      } else {
-        subject_data <- data.table::rbindlist(list(
-          dt[, `:=`(draw = 0)][
-            , mget(c("draw", "usubjid", "arrivalTime"))],
-          subject_data), use.names = TRUE)
+  if (return_subject_data) {
+    if (tolower(to_predict) == "enrollment only") {
+      subject_data <- enroll_pred$newSubjects
+      if (!is.null(df)) {
+        dt[, `:=`(arrivalTime = as.numeric(get("randdt") - get("trialsdt") + 1))]
+        
+        if (by_treatment) {
+          subject_data <- data.table::rbindlist(list(
+            dt[, `:=`(draw = 0)][
+              , mget(c("draw", "usubjid", "arrivalTime",
+                       "treatment", "treatment_description"))],
+            subject_data), use.names = TRUE)
+        } else {
+          subject_data <- data.table::rbindlist(list(
+            dt[, `:=`(draw = 0)][
+              , mget(c("draw", "usubjid", "arrivalTime"))],
+            subject_data), use.names = TRUE)
+        }
+      }
+    } else {
+      subject_data <- event_pred$newEvents
+      if (!is.null(df)) {
+        dt[, `:=`(
+          arrivalTime = as.numeric(get("randdt") - get("trialsdt") + 1),
+          totalTime = as.numeric(get("randdt") - get("trialsdt")) +
+            get("time"))]
+        
+        if (by_treatment) {
+          subject_data <- data.table::rbindlist(list(
+            dt[get("event") | get("dropout"), `:=`(draw = 0)][
+              , mget(c("draw", "usubjid", "arrivalTime", "treatment",
+                       "treatment_description", "time", "event",
+                       "dropout", "totalTime"))],
+            subject_data), use.names = TRUE)
+        } else {
+          subject_data <- data.table::rbindlist(list(
+            dt[get("event") | get("dropout"), `:=`(draw = 0)][
+              , mget(c("draw", "usubjid", "arrivalTime", "time",
+                       "event", "dropout", "totalTime"))],
+            subject_data), use.names = TRUE)
+        }
       }
     }
-  } else {
-    subject_data <- event_pred$newEvents
+    
+    # merge in other information such as covariates from raw data
     if (!is.null(df)) {
-      dt[, `:=`(
-        arrivalTime = as.numeric(get("randdt") - get("trialsdt") + 1),
-        totalTime = as.numeric(get("randdt") - get("trialsdt")) +
-          get("time"))]
-
-      if (by_treatment) {
-        subject_data <- data.table::rbindlist(list(
-          dt[get("event") | get("dropout"), `:=`(draw = 0)][
-            , mget(c("draw", "usubjid", "arrivalTime", "treatment",
-                     "treatment_description", "time", "event",
-                     "dropout", "totalTime"))],
-          subject_data), use.names = TRUE)
-      } else {
-        subject_data <- data.table::rbindlist(list(
-          dt[get("event") | get("dropout"), `:=`(draw = 0)][
-            , mget(c("draw", "usubjid", "arrivalTime", "time",
-                     "event", "dropout", "totalTime"))],
-          subject_data), use.names = TRUE)
-      }
+      varnames <- c(setdiff(names(dt), names(subject_data)), "usubjid")
+      subject_data <- merge(dt[, mget(varnames)], subject_data,
+                            by = "usubjid", all.y = TRUE)[order(get("draw"))]
     }
   }
-
-  # merge in other information such as covariates from raw data
-  if (!is.null(df)) {
-    varnames <- c(setdiff(names(dt), names(subject_data)), "usubjid")
-    subject_data <- merge(dt[, mget(varnames)], subject_data,
-                          by = "usubjid", all.y = TRUE)[order(get("draw"))]
-  }
+  
+  enroll_pred <- .trim_prediction_output(enroll_pred)
+  event_pred <- .trim_prediction_output(event_pred)
 
 
   # output results
@@ -2149,103 +2205,93 @@ getPrediction <- function(
     if (tolower(to_predict) == "enrollment only") {
       if (generate_plot && showplot) print(enroll_pred$enroll_pred_plot)
 
-      list(stage = "Design stage",
-           to_predict = "Enrollment only",
-           enroll_fit = enroll_prior, enroll_pred = enroll_pred,
-           subject_data = subject_data)
+      .build_output(stage = "Design stage",
+                    to_predict = "Enrollment only",
+                    enroll_fit = enroll_prior, enroll_pred = enroll_pred)
     } else if (tolower(to_predict) == "enrollment and event") {
       if (generate_plot && showplot) print(event_pred$event_pred_plot)
 
       if (!is.null(dropout_prior)) {
-        list(stage = "Design stage",
-             to_predict = "Enrollment and event",
-             enroll_fit = enroll_prior, enroll_pred = enroll_pred,
-             event_fit = event_prior,
-             dropout_fit = dropout_prior, event_pred = event_pred,
-             subject_data = subject_data)
+        .build_output(stage = "Design stage",
+                      to_predict = "Enrollment and event",
+                      enroll_fit = enroll_prior, enroll_pred = enroll_pred,
+                      event_fit = event_prior,
+                      dropout_fit = dropout_prior, event_pred = event_pred)
       } else {
-        list(stage = "Design stage",
-             to_predict = "Enrollment and event",
-             enroll_fit = enroll_prior, enroll_pred = enroll_pred,
-             event_fit = event_prior, event_pred = event_pred,
-             subject_data = subject_data)
+        .build_output(stage = "Design stage",
+                      to_predict = "Enrollment and event",
+                      enroll_fit = enroll_prior, enroll_pred = enroll_pred,
+                      event_fit = event_prior, event_pred = event_pred)
       }
     }
   } else { # analysis stage prediction
     if (tolower(to_predict) == "enrollment only") {
       if (generate_plot && showplot) print(enroll_pred$enroll_pred_plot)
 
-      list(stage = "Real-time before enrollment completion",
-           to_predict = "Enrollment only",
-           observed = observed, enroll_fit = enroll_fit,
-           enroll_pred = enroll_pred,
-           subject_data = subject_data)
+      .build_output(stage = "Real-time before enrollment completion",
+                    to_predict = "Enrollment only",
+                    observed = observed, enroll_fit = enroll_fit,
+                    enroll_pred = enroll_pred)
     } else if (tolower(to_predict) == "enrollment and event") {
       if (generate_plot && showplot) print(event_pred$event_pred_plot)
 
       if (tolower(dropout_model) != "none") {
         if (!is.null(covariates_event) &&
             !is.null(covariates_dropout)) {
-          list(stage = "Real-time before enrollment completion",
-               to_predict = "Enrollment and event",
-               observed = observed, enroll_fit = enroll_fit,
-               enroll_pred = enroll_pred,
-               event_fit = event_fit,
-               event_fit_with_covariates = event_fit_w_x,
-               dropout_fit = dropout_fit,
-               dropout_fit_with_covariates = dropout_fit_w_x,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time before enrollment completion",
+                        to_predict = "Enrollment and event",
+                        observed = observed, enroll_fit = enroll_fit,
+                        enroll_pred = enroll_pred,
+                        event_fit = event_fit,
+                        event_fit_with_covariates = event_fit_w_x,
+                        dropout_fit = dropout_fit,
+                        dropout_fit_with_covariates = dropout_fit_w_x,
+                        event_pred = event_pred)
         } else if (!is.null(covariates_event) &&
                    is.null(covariates_dropout)) {
-          list(stage = "Real-time before enrollment completion",
-               to_predict = "Enrollment and event",
-               observed = observed, enroll_fit = enroll_fit,
-               enroll_pred = enroll_pred,
-               event_fit = event_fit,
-               event_fit_with_covariates = event_fit_w_x,
-               dropout_fit = dropout_fit,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time before enrollment completion",
+                        to_predict = "Enrollment and event",
+                        observed = observed, enroll_fit = enroll_fit,
+                        enroll_pred = enroll_pred,
+                        event_fit = event_fit,
+                        event_fit_with_covariates = event_fit_w_x,
+                        dropout_fit = dropout_fit,
+                        event_pred = event_pred)
         } else if (is.null(covariates_event) &&
                    !is.null(covariates_dropout)) {
-          list(stage = "Real-time before enrollment completion",
-               to_predict = "Enrollment and event",
-               observed = observed, enroll_fit = enroll_fit,
-               enroll_pred = enroll_pred,
-               event_fit = event_fit,
-               dropout_fit = dropout_fit,
-               dropout_fit_with_covariates = dropout_fit_w_x,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time before enrollment completion",
+                        to_predict = "Enrollment and event",
+                        observed = observed, enroll_fit = enroll_fit,
+                        enroll_pred = enroll_pred,
+                        event_fit = event_fit,
+                        dropout_fit = dropout_fit,
+                        dropout_fit_with_covariates = dropout_fit_w_x,
+                        event_pred = event_pred)
         } else {
-          list(stage = "Real-time before enrollment completion",
-               to_predict = "Enrollment and event",
-               observed = observed, enroll_fit = enroll_fit,
-               enroll_pred = enroll_pred,
-               event_fit = event_fit,
-               dropout_fit = dropout_fit,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time before enrollment completion",
+                        to_predict = "Enrollment and event",
+                        observed = observed, enroll_fit = enroll_fit,
+                        enroll_pred = enroll_pred,
+                        event_fit = event_fit,
+                        dropout_fit = dropout_fit,
+                        event_pred = event_pred)
         }
       } else { # no dropout model
         if (!is.null(covariates_event)) {
-          list(stage = "Real-time before enrollment completion",
-               to_predict = "Enrollment and event",
-               observed = observed, enroll_fit = enroll_fit,
-               enroll_pred = enroll_pred,
-               event_fit = event_fit,
-               event_fit_with_covariates = event_fit_w_x,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time before enrollment completion",
+                        to_predict = "Enrollment and event",
+                        observed = observed, enroll_fit = enroll_fit,
+                        enroll_pred = enroll_pred,
+                        event_fit = event_fit,
+                        event_fit_with_covariates = event_fit_w_x,
+                        event_pred = event_pred)
         } else {
-          list(stage = "Real-time before enrollment completion",
-               to_predict = "Enrollment and event",
-               observed = observed, enroll_fit = enroll_fit,
-               enroll_pred = enroll_pred,
-               event_fit = event_fit,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time before enrollment completion",
+                        to_predict = "Enrollment and event",
+                        observed = observed, enroll_fit = enroll_fit,
+                        enroll_pred = enroll_pred,
+                        event_fit = event_fit,
+                        event_pred = event_pred)
         }
       }
     } else if (tolower(to_predict) == "event only") {
@@ -2254,55 +2300,49 @@ getPrediction <- function(
       if (tolower(dropout_model) != "none") {
         if (!is.null(covariates_event) &&
             !is.null(covariates_dropout)) {
-          list(stage = "Real-time after enrollment completion",
-               to_predict = "Event only",
-               observed = observed,
-               event_fit_with_covariates = event_fit_w_x,
-               dropout_fit_with_covariates = dropout_fit_w_x,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time after enrollment completion",
+                        to_predict = "Event only",
+                        observed = observed,
+                        event_fit_with_covariates = event_fit_w_x,
+                        dropout_fit_with_covariates = dropout_fit_w_x,
+                        event_pred = event_pred)
         } else if (!is.null(covariates_event) &&
                    is.null(covariates_dropout)) {
-          list(stage = "Real-time after enrollment completion",
-               to_predict = "Event only",
-               observed = observed,
-               event_fit_with_covariates = event_fit_w_x,
-               dropout_fit = dropout_fit,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time after enrollment completion",
+                        to_predict = "Event only",
+                        observed = observed,
+                        event_fit_with_covariates = event_fit_w_x,
+                        dropout_fit = dropout_fit,
+                        event_pred = event_pred)
         } else if (is.null(covariates_event) &&
                    !is.null(covariates_dropout)) {
-          list(stage = "Real-time after enrollment completion",
-               to_predict = "Event only",
-               observed = observed,
-               event_fit = event_fit,
-               dropout_fit_with_covariates = dropout_fit_w_x,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time after enrollment completion",
+                        to_predict = "Event only",
+                        observed = observed,
+                        event_fit = event_fit,
+                        dropout_fit_with_covariates = dropout_fit_w_x,
+                        event_pred = event_pred)
         } else {
-          list(stage = "Real-time after enrollment completion",
-               to_predict = "Event only",
-               observed = observed,
-               event_fit = event_fit,
-               dropout_fit = dropout_fit,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time after enrollment completion",
+                        to_predict = "Event only",
+                        observed = observed,
+                        event_fit = event_fit,
+                        dropout_fit = dropout_fit,
+                        event_pred = event_pred)
         }
       } else { # no dropout model
         if (!is.null(covariates_event)) {
-          list(stage = "Real-time after enrollment completion",
-               to_predict = "Event only",
-               observed = observed,
-               event_fit_with_covariates = event_fit_w_x,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time after enrollment completion",
+                        to_predict = "Event only",
+                        observed = observed,
+                        event_fit_with_covariates = event_fit_w_x,
+                        event_pred = event_pred)
         } else {
-          list(stage = "Real-time after enrollment completion",
-               to_predict = "Event only",
-               observed = observed,
-               event_fit = event_fit,
-               event_pred = event_pred,
-               subject_data = subject_data)
+          .build_output(stage = "Real-time after enrollment completion",
+                        to_predict = "Event only",
+                        observed = observed,
+                        event_fit = event_fit,
+                        event_pred = event_pred)
         }
       }
     }

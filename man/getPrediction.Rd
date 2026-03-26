@@ -51,7 +51,9 @@ getPrediction(
   interactive_plot = TRUE,
   criterion = "both",
   seed.num = NULL,
-  cure_rate = NULL
+  cure_rate = NULL,
+  return_subject_data = TRUE,
+  return_simulation_data = TRUE
 )
 }
 \arguments{
@@ -258,11 +260,23 @@ fraction is fixed at this value rather than estimated. When
 \code{by_treatment=TRUE}, \code{cure_rate} may be a numeric vector of length
 \code{ngroups}, with each element corresponding to one treatment arm.
 UPDATED (merge): new feature to support fixed cure rates.}
+
+\item{return_subject_data}{Logical; if \code{TRUE} (default), keep the
+combined subject-level simulation output in the returned object. Setting
+this to \code{FALSE} can materially reduce memory use for large
+\code{nreps}.}
+
+\item{return_simulation_data}{Logical; if \code{TRUE} (default), keep nested
+subject-level simulated data such as \code{newSubjects} and
+\code{newEvents} in \code{enroll_pred} and \code{event_pred}. Setting this
+to \code{FALSE} reduces the size of the returned object.}
 }
 \value{
 A list that includes the fits of observed data models,
 as well as simulated enrollment data for new subjects and
-simulated event data for ongoing and new subjects.
+simulated event data for ongoing and new subjects. Large returned simulation
+objects can be omitted with \code{return_subject_data} and
+\code{return_simulation_data}.
 
 
 This merged implementation is based on the original \code{getPrediction()}

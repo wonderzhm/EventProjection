@@ -39,3 +39,24 @@ testthat::test_that("enrollment prediction during enrollment stage", {
   testthat::expect_equal(a, b)
 })
 
+
+testthat::test_that("enrollment prediction can omit large subject-level output", {
+  set.seed(2000)
+
+  enroll_fits <- fitEnrollment(
+    df = interimData1, enroll_model = "b-spline",
+    nknots = 1, showplot = FALSE)
+
+  pred1 <- predictEnrollment(
+    df = interimData1,
+    target_n = 300,
+    enroll_fit = enroll_fits$fit,
+    lags = 30,
+    pilevel = 0.90, nreps = 20,
+    showsummary = FALSE, showplot = FALSE,
+    return_new_subjects = FALSE)
+
+  testthat::expect_false("newSubjects" %in% names(pred1))
+  testthat::expect_true("enroll_pred_df" %in% names(pred1))
+  testthat::expect_true("enroll_pred_day" %in% names(pred1))
+})

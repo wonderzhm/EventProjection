@@ -1020,18 +1020,15 @@ When exact upstream comparison is important, a good working expectation is:
 
 Minor differences may still arise when merged validation, numerical safeguards, or edge-case handling differ.
 
-## 17. Additional simulation utilities
+## 17. Additional internal modeling helpers
 
-The package also includes utilities inherited from the cure-oriented workflow:
+The package also includes lower-level helpers that support cure-aware event modeling and simulation, including:
 
-- `FH_test()`
-- `tte()`
-- `test_procedure()`
-- `test_plot()`
 - `Chen_2016_event_time()` and related helpers
-- cure-model survival-probability and log-likelihood helpers such as `SP_Chen_weibull()` and `loglik_Chen_weibull()`
+- cure-model survival-probability helpers such as `SP_Chen_weibull()`
+- cure-model log-likelihood helpers such as `loglik_Chen_weibull()`
 
-These are most useful for simulation studies and operating-characteristic evaluation rather than routine projection alone.
+These are primarily implementation-level utilities that support the higher-level fitting and prediction interfaces.
 
 ## 18. Session information
 

@@ -73,3 +73,31 @@ testthat::test_that("event prediction after enrollment completion", {
 
   testthat::expect_equal(a, b)
 })
+
+
+testthat::test_that("getPrediction can omit duplicated large outputs", {
+  set.seed(2000)
+
+  pred1 <- getPrediction(
+    df = interimData1,
+    to_predict = "enrollment and event",
+    target_n = 300,
+    target_d = 200,
+    enroll_model = "time-decay",
+    event_model = "weibull",
+    dropout_model = "exponential",
+    pilevel = 0.90, nreps = 20,
+    showsummary = FALSE, showplot = FALSE,
+    return_subject_data = FALSE,
+    return_simulation_data = FALSE)
+
+  testthat::expect_false("subject_data" %in% names(pred1))
+  testthat::expect_false("newSubjects" %in% names(pred1$enroll_pred))
+  testthat::expect_true("enroll_pred_df" %in% names(pred1$enroll_pred))
+  testthat::expect_false("newEvents" %in% names(pred1$event_pred))
+  testthat::expect_true("enroll_pred_df" %in% names(pred1$event_pred))
+  testthat::expect_true("event_pred_df" %in% names(pred1$event_pred))
+  testthat::expect_true("dropout_pred_df" %in% names(pred1$event_pred))
+  testthat::expect_true("ongoing_pred_df" %in% names(pred1$event_pred))
+  testthat::expect_true("event_pred_day" %in% names(pred1$event_pred))
+})
