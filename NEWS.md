@@ -1,3 +1,22 @@
+## EventProjection 0.2.9.2
+
+### Performance and memory
+
+- Reworked prediction summaries in `predictEnrollment()` and `predictEvent()` to avoid large Cartesian expansions and reduce memory use for larger `nreps`.
+- Added output controls for large subject-level simulation objects so the package can avoid returning bulky simulated subject/event tables when they are not needed.
+
+### API and package surface
+
+- Added size-control arguments for large simulation outputs, including `return_new_subjects`, `return_new_events`, `return_subject_data`, and `return_simulation_data`.
+- Removed non-core simulation and testing utilities from the public package surface: `FH_test()`, `tte()`, `test_procedure()`, `test_plot()`, `b4pst()`, and `smed()`.
+
+### Package maintenance
+
+- Cleaned `NAMESPACE`, help files, and vignette references after removing the non-core utilities.
+- Updated package metadata for version `0.2.9.2`.
+
+## EventProjection 0.2.9.1
+
 ## Major changes
 
 - Forked from **eventPred** 0.2.9 and renamed to **EventProjection**.
