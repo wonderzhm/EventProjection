@@ -254,106 +254,40 @@ fitEnrollment <- function(df,
     dffit1 <- data.frame(t = time, n = m)
   }
   
-  # ---- Annotation text (UPDATED: criterion controls AIC/BIC display) ----
-  if (tolower(fit1$model) == "piecewise poisson") {
-    modeltext <- paste0(fit1$model, "(", paste(accrualTime, collapse = " "), ")")
-  } else if (tolower(fit1$model) == "b-spline") {
-    modeltext <- paste0(fit1$model, "(nknots = ", nknots, ")")
-  } else {
-    modeltext <- fit1$model
-  }
-  
-  aictext <- paste("AIC:", formatC(fit1$aic, format = "f", digits = 2))
-  bictext <- paste("BIC:", formatC(fit1$bic, format = "f", digits = 2))
-  
-  text_vec <- switch(
-    criterion_lc,
-    "aic"  = c(modeltext, aictext),
-    "bic"  = c(modeltext, bictext),
-    "both" = c(modeltext, aictext, bictext)
+  text_vec <- .ep_build_enrollment_fit_text(
+    fit = fit1,
+    accrual_time = accrualTime,
+    nknots = nknots,
+    criterion_lc = criterion_lc
   )
   
   # ---- Plot (optional) ----
   if (generate_plot) {
     
-    if (interactive_plot) {
-      
-      if (!requireNamespace("plotly", quietly = TRUE)) {
-        stop("Package 'plotly' is required for interactive_plot=TRUE.")
-      }
-      
-      y_pos <- seq(0.95, by = -0.05, length.out = length(text_vec))
-      x_pos <- rep(0.05, length(text_vec))
-      
-      fittedEnroll <- plotly::plot_ly() %>%
-        plotly::add_lines(
-          data = df1u, x = ~t, y = ~n,
-          name = "observed", line = list(shape = "hv")
-        ) %>%
-        plotly::add_lines(data = dffit1, x = ~t, y = ~n, name = "fitted") %>%
-        plotly::layout(
-          xaxis = list(title = "Days since trial start", zeroline = FALSE),
-          yaxis = list(title = "Subjects", zeroline = FALSE),
-          title = list(text = "Fitted enrollment curve"),
-          annotations = list(
-            x = x_pos, y = y_pos,
-            xref = "paper", yref = "paper",
-            text = paste0("<i>", text_vec, "</i>"),
-            xanchor = "left",
-            font = list(size = 14, color = "red"),
-            showarrow = FALSE
-          )
-        ) %>%
-        plotly::hide_legend()
-      
-    } else {
-      
-      if (!requireNamespace("ggplot2", quietly = TRUE)) {
-        stop("Package 'ggplot2' is required for interactive_plot=FALSE.")
-      }
-      
-      fittedEnroll <- ggplot2::ggplot() +
-        ggplot2::geom_step(data = df1u, ggplot2::aes(x = .data$t, y = .data$n)) +
-        ggplot2::geom_line(data = dffit1, ggplot2::aes(x = .data$t, y = .data$n), colour = "red") +
-        ggplot2::labs(
-          x = "Days since trial start",
-          y = "Subjects",
-          title = "Fitted enrollment curve"
-        ) +
-        ggplot2::theme(legend.position = "none")
-      
-      # add 1–3 annotation lines depending on criterion
-      for (i in seq_along(text_vec)) {
-        fittedEnroll <- fittedEnroll +
-          ggplot2::annotate(
-            "text",
-            x = -Inf, y = Inf,
-            label = text_vec[i],
-            hjust = -0.1,
-            vjust = 1.5 + 2 * (i - 1),
-            colour = "red",
-            size = 5,
-            fontface = "italic"
-          )
-      }
-    }
+    fittedEnroll <- .ep_build_enrollment_fit_plot(
+      enrolldf = df1u,
+      dffit = dffit1,
+      text_vec = text_vec,
+      interactive_plot = interactive_plot
+    )
     
     if (showplot) print(fittedEnroll)
-    
-    return(list(
+    return(.ep_build_enrollment_fit_output(
       fit = fit1,
       fit_plot = fittedEnroll,
       enrolldf = df1u,
       dffit = dffit1,
-      text = text_vec
+      text_vec = text_vec
     ))
+      
+      # add 1–3 annotation lines depending on criterion
   }
   
   # no plot
-  list(
+  .ep_build_enrollment_fit_output(
     fit = fit1,
     enrolldf = df1u,
     dffit = dffit1,
-    text = text_vec
+    text_vec = text_vec
   )
 }

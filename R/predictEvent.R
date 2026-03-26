@@ -199,21 +199,14 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
     set.seed(as.integer(seed.num))
   }
   
-  # Standardize commonly used column names in a case-insensitive way (keeps internal camelCase names)
-  .standardize_cols <- function(x, canonical) {
-    if (is.null(x)) return(x)
-    nms <- names(x)
-    low <- tolower(nms)
-    for (nm in canonical) {
-      j <- match(tolower(nm), low)
-      if (!is.na(j) && nms[j] != nm) {
-        names(x)[j] <- nm
-      }
-    }
-    x
-  }
-  df <- .standardize_cols(df, c("arrivalTime", "totalTime", "event", "dropout", "treatment"))
-  newSubjects <- .standardize_cols(newSubjects, c("arrivalTime", "treatment", "draw"))
+  df <- .ep_standardize_columns(
+    df,
+    c("arrivalTime", "totalTime", "event", "dropout", "treatment")
+  )
+  newSubjects <- .ep_standardize_columns(
+    newSubjects,
+    c("arrivalTime", "treatment", "draw")
+  )
   
   erify::check_bool(by_treatment)
   

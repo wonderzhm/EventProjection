@@ -387,51 +387,6 @@ getPrediction <- function(
   enroll_pred <- NULL
   event_pred <- NULL
   subject_data <- NULL
-  
-  .trim_prediction_output <- function(pred) {
-    if (is.null(pred)) {
-      return(pred)
-    }
-    
-    if (!return_simulation_data) {
-      pred$newSubjects <- NULL
-      pred$newEvents <- NULL
-    }
-    
-    pred
-  }
-  
-  .build_output <- function(...) {
-    out <- list(...)
-    if (return_subject_data) {
-      out$subject_data <- subject_data
-    }
-    out
-  }
-
-
-  # ---------------------------------------------------------------------------
-  # UPDATED (merge): helper for pooling priors
-  # ---------------------------------------------------------------------------
-
-  # Pool priors by moment matching: E[theta], Var(theta)
-  .pool_priors_moment_match <- function(prior_list, w) {
-    if (length(prior_list) != length(w)) stop("w must have same length as prior_list")
-    w <- w/sum(w)
-    theta_bar <- 0
-    second_moment <- 0
-    for (i in seq_along(prior_list)) {
-      th <- prior_list[[i]]$theta
-      vt <- prior_list[[i]]$vtheta
-      if (!is.matrix(vt)) {
-        vt <- matrix(vt, nrow = length(th), ncol = length(th))
-      }
-      theta_bar <- theta_bar + w[i] * th
-      second_moment <- second_moment + w[i] * (vt + th %*% t(th))
-    }
-    vtheta_bar <- second_moment - theta_bar %*% t(theta_bar)
-    list(theta = theta_bar, vtheta = vtheta_bar)
-  }
 
   erify::check_content(tolower(enroll_model),
                        c("poisson", "time-decay", "b-spline",
@@ -1384,7 +1339,7 @@ getPrediction <- function(
         }
 
         # UPDATED (merge): pooled prior via moment matching helper
-        pooled <- .pool_priors_moment_match(event_prior_w_x, w)
+        pooled <- .ep_pool_priors_moment_match(event_prior_w_x, w)
         theta <- pooled$theta
         vtheta <- pooled$vtheta
 
@@ -1760,7 +1715,7 @@ getPrediction <- function(
           }
 
           # UPDATED (merge): pooled prior via moment matching helper
-          pooled <- .pool_priors_moment_match(dropout_prior_w_x, w)
+          pooled <- .ep_pool_priors_moment_match(dropout_prior_w_x, w)
           theta <- pooled$theta
           vtheta <- pooled$vtheta
 
@@ -2145,206 +2100,53 @@ getPrediction <- function(
 
   # obtain subject-level data from all subjects
   if (return_subject_data) {
-    if (tolower(to_predict) == "enrollment only") {
-      subject_data <- enroll_pred$newSubjects
-      if (!is.null(df)) {
-        dt[, `:=`(arrivalTime = as.numeric(get("randdt") - get("trialsdt") + 1))]
-        
-        if (by_treatment) {
-          subject_data <- data.table::rbindlist(list(
-            dt[, `:=`(draw = 0)][
-              , mget(c("draw", "usubjid", "arrivalTime",
-                       "treatment", "treatment_description"))],
-            subject_data), use.names = TRUE)
-        } else {
-          subject_data <- data.table::rbindlist(list(
-            dt[, `:=`(draw = 0)][
-              , mget(c("draw", "usubjid", "arrivalTime"))],
-            subject_data), use.names = TRUE)
-        }
-      }
-    } else {
-      subject_data <- event_pred$newEvents
-      if (!is.null(df)) {
-        dt[, `:=`(
-          arrivalTime = as.numeric(get("randdt") - get("trialsdt") + 1),
-          totalTime = as.numeric(get("randdt") - get("trialsdt")) +
-            get("time"))]
-        
-        if (by_treatment) {
-          subject_data <- data.table::rbindlist(list(
-            dt[get("event") | get("dropout"), `:=`(draw = 0)][
-              , mget(c("draw", "usubjid", "arrivalTime", "treatment",
-                       "treatment_description", "time", "event",
-                       "dropout", "totalTime"))],
-            subject_data), use.names = TRUE)
-        } else {
-          subject_data <- data.table::rbindlist(list(
-            dt[get("event") | get("dropout"), `:=`(draw = 0)][
-              , mget(c("draw", "usubjid", "arrivalTime", "time",
-                       "event", "dropout", "totalTime"))],
-            subject_data), use.names = TRUE)
-        }
-      }
-    }
-    
-    # merge in other information such as covariates from raw data
-    if (!is.null(df)) {
-      varnames <- c(setdiff(names(dt), names(subject_data)), "usubjid")
-      subject_data <- merge(dt[, mget(varnames)], subject_data,
-                            by = "usubjid", all.y = TRUE)[order(get("draw"))]
-    }
+    subject_data <- .ep_build_prediction_subject_data(
+      dt = if (!is.null(df)) dt else NULL,
+      to_predict = to_predict,
+      enroll_pred = enroll_pred,
+      event_pred = event_pred,
+      by_treatment = by_treatment
+    )
   }
   
-  enroll_pred <- .trim_prediction_output(enroll_pred)
-  event_pred <- .trim_prediction_output(event_pred)
+  enroll_pred <- .ep_trim_prediction_output(enroll_pred, return_simulation_data)
+  event_pred <- .ep_trim_prediction_output(event_pred, return_simulation_data)
 
+  to_predict_lc <- tolower(to_predict)
+  observed_out <- if (exists("observed")) observed else NULL
+  enroll_fit_out <- if (!is.null(df) && exists("enroll_fit")) enroll_fit else enroll_prior
+  event_fit_out <- if (exists("event_fit")) event_fit else event_prior
+  event_fit_w_x_out <- if (exists("event_fit_w_x")) event_fit_w_x else NULL
+  dropout_fit_out <- if (exists("dropout_fit")) dropout_fit else dropout_prior
+  dropout_fit_w_x_out <- if (exists("dropout_fit_w_x")) dropout_fit_w_x else NULL
 
-  # output results
-  if (is.null(df)) { # design stage prediction
-    if (tolower(to_predict) == "enrollment only") {
-      if (generate_plot && showplot) print(enroll_pred$enroll_pred_plot)
-
-      .build_output(stage = "Design stage",
-                    to_predict = "Enrollment only",
-                    enroll_fit = enroll_prior, enroll_pred = enroll_pred)
-    } else if (tolower(to_predict) == "enrollment and event") {
-      if (generate_plot && showplot) print(event_pred$event_pred_plot)
-
-      if (!is.null(dropout_prior)) {
-        .build_output(stage = "Design stage",
-                      to_predict = "Enrollment and event",
-                      enroll_fit = enroll_prior, enroll_pred = enroll_pred,
-                      event_fit = event_prior,
-                      dropout_fit = dropout_prior, event_pred = event_pred)
-      } else {
-        .build_output(stage = "Design stage",
-                      to_predict = "Enrollment and event",
-                      enroll_fit = enroll_prior, enroll_pred = enroll_pred,
-                      event_fit = event_prior, event_pred = event_pred)
-      }
-    }
-  } else { # analysis stage prediction
-    if (tolower(to_predict) == "enrollment only") {
-      if (generate_plot && showplot) print(enroll_pred$enroll_pred_plot)
-
-      .build_output(stage = "Real-time before enrollment completion",
-                    to_predict = "Enrollment only",
-                    observed = observed, enroll_fit = enroll_fit,
-                    enroll_pred = enroll_pred)
-    } else if (tolower(to_predict) == "enrollment and event") {
-      if (generate_plot && showplot) print(event_pred$event_pred_plot)
-
-      if (tolower(dropout_model) != "none") {
-        if (!is.null(covariates_event) &&
-            !is.null(covariates_dropout)) {
-          .build_output(stage = "Real-time before enrollment completion",
-                        to_predict = "Enrollment and event",
-                        observed = observed, enroll_fit = enroll_fit,
-                        enroll_pred = enroll_pred,
-                        event_fit = event_fit,
-                        event_fit_with_covariates = event_fit_w_x,
-                        dropout_fit = dropout_fit,
-                        dropout_fit_with_covariates = dropout_fit_w_x,
-                        event_pred = event_pred)
-        } else if (!is.null(covariates_event) &&
-                   is.null(covariates_dropout)) {
-          .build_output(stage = "Real-time before enrollment completion",
-                        to_predict = "Enrollment and event",
-                        observed = observed, enroll_fit = enroll_fit,
-                        enroll_pred = enroll_pred,
-                        event_fit = event_fit,
-                        event_fit_with_covariates = event_fit_w_x,
-                        dropout_fit = dropout_fit,
-                        event_pred = event_pred)
-        } else if (is.null(covariates_event) &&
-                   !is.null(covariates_dropout)) {
-          .build_output(stage = "Real-time before enrollment completion",
-                        to_predict = "Enrollment and event",
-                        observed = observed, enroll_fit = enroll_fit,
-                        enroll_pred = enroll_pred,
-                        event_fit = event_fit,
-                        dropout_fit = dropout_fit,
-                        dropout_fit_with_covariates = dropout_fit_w_x,
-                        event_pred = event_pred)
-        } else {
-          .build_output(stage = "Real-time before enrollment completion",
-                        to_predict = "Enrollment and event",
-                        observed = observed, enroll_fit = enroll_fit,
-                        enroll_pred = enroll_pred,
-                        event_fit = event_fit,
-                        dropout_fit = dropout_fit,
-                        event_pred = event_pred)
-        }
-      } else { # no dropout model
-        if (!is.null(covariates_event)) {
-          .build_output(stage = "Real-time before enrollment completion",
-                        to_predict = "Enrollment and event",
-                        observed = observed, enroll_fit = enroll_fit,
-                        enroll_pred = enroll_pred,
-                        event_fit = event_fit,
-                        event_fit_with_covariates = event_fit_w_x,
-                        event_pred = event_pred)
-        } else {
-          .build_output(stage = "Real-time before enrollment completion",
-                        to_predict = "Enrollment and event",
-                        observed = observed, enroll_fit = enroll_fit,
-                        enroll_pred = enroll_pred,
-                        event_fit = event_fit,
-                        event_pred = event_pred)
-        }
-      }
-    } else if (tolower(to_predict) == "event only") {
-      if (generate_plot && showplot) print(event_pred$event_pred_plot)
-
-      if (tolower(dropout_model) != "none") {
-        if (!is.null(covariates_event) &&
-            !is.null(covariates_dropout)) {
-          .build_output(stage = "Real-time after enrollment completion",
-                        to_predict = "Event only",
-                        observed = observed,
-                        event_fit_with_covariates = event_fit_w_x,
-                        dropout_fit_with_covariates = dropout_fit_w_x,
-                        event_pred = event_pred)
-        } else if (!is.null(covariates_event) &&
-                   is.null(covariates_dropout)) {
-          .build_output(stage = "Real-time after enrollment completion",
-                        to_predict = "Event only",
-                        observed = observed,
-                        event_fit_with_covariates = event_fit_w_x,
-                        dropout_fit = dropout_fit,
-                        event_pred = event_pred)
-        } else if (is.null(covariates_event) &&
-                   !is.null(covariates_dropout)) {
-          .build_output(stage = "Real-time after enrollment completion",
-                        to_predict = "Event only",
-                        observed = observed,
-                        event_fit = event_fit,
-                        dropout_fit_with_covariates = dropout_fit_w_x,
-                        event_pred = event_pred)
-        } else {
-          .build_output(stage = "Real-time after enrollment completion",
-                        to_predict = "Event only",
-                        observed = observed,
-                        event_fit = event_fit,
-                        dropout_fit = dropout_fit,
-                        event_pred = event_pred)
-        }
-      } else { # no dropout model
-        if (!is.null(covariates_event)) {
-          .build_output(stage = "Real-time after enrollment completion",
-                        to_predict = "Event only",
-                        observed = observed,
-                        event_fit_with_covariates = event_fit_w_x,
-                        event_pred = event_pred)
-        } else {
-          .build_output(stage = "Real-time after enrollment completion",
-                        to_predict = "Event only",
-                        observed = observed,
-                        event_fit = event_fit,
-                        event_pred = event_pred)
-        }
-      }
-    }
+  if (is.null(df) && to_predict_lc == "event only") {
+    return(NULL)
   }
+
+  .ep_maybe_print_prediction_plot(
+    to_predict_lc = to_predict_lc,
+    generate_plot = generate_plot,
+    showplot = showplot,
+    enroll_pred = enroll_pred,
+    event_pred = event_pred
+  )
+
+  .ep_build_get_prediction_result(
+    has_observed_data = !is.null(df),
+    to_predict_lc = to_predict_lc,
+    observed = observed_out,
+    enroll_fit = enroll_fit_out,
+    enroll_pred = enroll_pred,
+    event_fit = event_fit_out,
+    event_fit_with_covariates = event_fit_w_x_out,
+    dropout_fit = dropout_fit_out,
+    dropout_fit_with_covariates = dropout_fit_w_x_out,
+    event_pred = event_pred,
+    dropout_model = dropout_model,
+    covariates_event = covariates_event,
+    covariates_dropout = covariates_dropout,
+    subject_data = subject_data,
+    return_subject_data = return_subject_data
+  )
 }
