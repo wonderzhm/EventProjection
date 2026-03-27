@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>EventProjection: Technical Tutorial and User Guide</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">EventProjection: Technical Tutorial and
+User Guide</h1>
+
+
+
+<div id="introduction" class="section level2">
+<h2>1. Introduction</h2>
+<p><code>EventProjection</code> is a unified package for enrollment and
+event projection in clinical trials. It supports:</p>
+<ul>
+<li><strong>design-stage projection</strong>, where enrollment, event,
+and dropout models are specified through prior distributions;</li>
+<li><strong>analysis-stage projection before enrollment
+completion</strong>, where observed enrollment and time-to-event data
+are combined with optional prior information;</li>
+<li><strong>analysis-stage projection after enrollment
+completion</strong>, where only future events from ongoing participants
+need to be projected;</li>
+<li><strong>standard non-cure models</strong> inherited from the
+<code>eventPred</code> workflow;</li>
+<li><strong>mixture-cure and delayed-treatment-effect
+extensions</strong> adapted from <code>EventPredInCure</code>.</li>
+</ul>
+<p>The merged package is designed so that:</p>
+<ul>
+<li>non-cure, non-delay workflows remain as close as possible to
+<code>eventPred</code>;</li>
+<li>cure-aware and delayed-treatment-effect workflows remain as close as
+possible to <code>EventPredInCure</code>;</li>
+<li>users can work through one consistent API centered on
+<code>summarizeObserved()</code>, <code>fitEnrollment()</code>,
+<code>fitEvent()</code>, <code>fitDropout()</code>,
+<code>predictEnrollment()</code>, <code>predictEvent()</code>, and
+<code>getPrediction()</code>.</li>
+</ul>
+<p>This vignette is intentionally more technical than a quick-start
+guide. It is written to serve as the main package tutorial and to
+document the modeling assumptions, parameterizations, algorithms,
+interfaces, and current implementation limitations.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(EventProjection)</span></code></pre></div>
+</div>
+<div id="package-workflow-in-one-page" class="section level2">
+<h2>2. Package workflow in one page</h2>
+<p>A typical analysis-stage workflow is:</p>
+<ol style="list-style-type: decimal">
+<li>Inspect the data with <code>summarizeObserved()</code>.</li>
+<li>Fit one or more enrollment models using <code>fitEnrollment()</code>
+if enrollment is ongoing.</li>
+<li>Fit one or more event models with <code>fitEvent()</code>.</li>
+<li>Fit one or more dropout models with <code>fitDropout()</code>.</li>
+<li>Compare candidate models using plots and information criteria.</li>
+<li>Project enrollment with <code>predictEnrollment()</code>.</li>
+<li>Project events with <code>predictEvent()</code>.</li>
+<li>For a one-step workflow, use <code>getPrediction()</code>.</li>
+</ol>
+<p>A typical design-stage workflow is:</p>
+<ol style="list-style-type: decimal">
+<li>Build prior objects for enrollment, event, and optionally
+dropout.</li>
+<li>Pass them to <code>predictEnrollment()</code>,
+<code>predictEvent()</code>, or <code>getPrediction()</code>.</li>
+<li>Use simulation outputs and prediction intervals to summarize timing
+uncertainty.</li>
+</ol>
+</div>
+<div id="input-data-structure" class="section level2">
+<h2>3. Input data structure</h2>
+<p>For analysis-stage workflows, the subject-level data frame typically
+contains the following columns.</p>
+<div id="required-for-enrollment-prediction" class="section level3">
+<h3>Required for enrollment prediction</h3>
+<ul>
+<li><code>trialsdt</code>: trial start date</li>
+<li><code>cutoffdt</code>: data-cut date</li>
+<li><code>usubjid</code>: unique subject identifier</li>
+<li><code>randdt</code>: randomization date or enrollment date</li>
+</ul>
+</div>
+<div id="additional-required-columns-for-event-prediction" class="section level3">
+<h3>Additional required columns for event prediction</h3>
+<ul>
+<li><code>time</code>: observed event or censoring time from
+randomization</li>
+<li><code>event</code>: event indicator (<code>1</code> = event,
+<code>0</code> = no event by cutoff)</li>
+<li><code>dropout</code>: dropout indicator (<code>1</code> = dropout
+before event, <code>0</code> otherwise)</li>
+</ul>
+</div>
+<div id="optional-columns" class="section level3">
+<h3>Optional columns</h3>
+<ul>
+<li><code>treatment</code>: treatment coded as <code>1</code>,
+<code>2</code>, …</li>
+<li><code>treatment_description</code>: treatment label</li>
+<li>baseline covariates used in non-cure event or dropout models</li>
+</ul>
+<p>The merged implementation standardizes input column names to lower
+case internally, so users do not need to worry about capitalization
+differences.</p>
+<p>The package includes example data:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">data</span>(interimData1)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">data</span>(interimData2)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">data</span>(finalData)</span></code></pre></div>
+<p>Use these datasets to reproduce most examples in this tutorial.</p>
+</div>
+</div>
+<div id="statistical-framework" class="section level2">
+<h2>4. Statistical framework</h2>
+<div id="study-stages-addressed-by-the-package" class="section level3">
+<h3>4.1 Study stages addressed by the package</h3>
+<p>The package is intended for three common projection settings.</p>
+<div id="design-stage" class="section level4">
+<h4>Design stage</h4>
+<p>No observed trial data are required. Enrollment, event, and dropout
+models are specified through prior distributions or fixed parameter
+values.</p>
+</div>
+<div id="enrollment-phase" class="section level4">
+<h4>Enrollment phase</h4>
+<p>Enrollment is ongoing. The future event count is driven by both:</p>
+<ul>
+<li>new subjects who have not yet enrolled, and</li>
+<li>ongoing subjects who are already enrolled but event-free at the data
+cut.</li>
+</ul>
+</div>
+<div id="follow-up-phase" class="section level4">
+<h4>Follow-up phase</h4>
+<p>Enrollment is complete. Projection only needs to account for future
+events from ongoing subjects.</p>
+</div>
+</div>
+<div id="event-count-decomposition" class="section level3">
+<h3>4.2 Event-count decomposition</h3>
+<p>Let <code>t0</code> denote the data-cut time and let
+<code>D(t)</code> denote the cumulative number of observed events by
+calendar time <code>t</code>. A standard decomposition is</p>
+<p><span class="math display">\[
+D(t) = D(t_0) + Q(t_0, t) + R(t_0, t),
+\]</span></p>
+<p>where:</p>
+<ul>
+<li><span class="math inline">\(D(t_0)\)</span> is the observed event
+count at the data cut,</li>
+<li><span class="math inline">\(Q(t_0, t)\)</span> is the future event
+count contributed by <strong>ongoing subjects</strong>,</li>
+<li><span class="math inline">\(R(t_0, t)\)</span> is the future event
+count contributed by <strong>newly enrolled subjects</strong>.</li>
+</ul>
+<p>This decomposition is central to <code>predictEvent()</code> and
+<code>getPrediction()</code>.</p>
+</div>
+</div>
+<div id="enrollment-models" class="section level2">
+<h2>5. Enrollment models</h2>
+<p>The enrollment component models the counting process of subject
+arrivals over time.</p>
+<p>Let <span class="math inline">\(N(t)\)</span> denote the cumulative
+number of enrolled subjects by study day <span class="math inline">\(t\)</span>, with mean function <span class="math inline">\(\mu(t)\)</span> and rate function <span class="math inline">\(a(t)\)</span>. Under a Poisson-process
+formulation,</p>
+<p><span class="math display">\[
+N(t_1) - N(t_0) \sim \text{Poisson}\{\mu(t_1)-\mu(t_0)\},
+\]</span></p>
+<p>where</p>
+<p><span class="math display">\[
+\mu(t) = \int_0^t a(u) \, du.
+\]</span></p>
+<div id="supported-enrollment-models" class="section level3">
+<h3>5.1 Supported enrollment models</h3>
+<p><code>EventProjection</code> supports the following enrollment
+models:</p>
+<ul>
+<li><code>&quot;poisson&quot;</code></li>
+<li><code>&quot;time-decay&quot;</code></li>
+<li><code>&quot;b-spline&quot;</code></li>
+<li><code>&quot;piecewise poisson&quot;</code></li>
+</ul>
+</div>
+<div id="homogeneous-poisson-model" class="section level3">
+<h3>5.2 Homogeneous Poisson model</h3>
+<p>This model assumes a constant enrollment rate:</p>
+<p><span class="math display">\[
+a(t) \equiv \lambda,
+\qquad
+\mu(t)=\lambda t.
+\]</span></p>
+<p>Parameterization used in the package:</p>
+<p><span class="math display">\[
+\theta = \log(\lambda).
+\]</span></p>
+</div>
+<div id="time-decay-model" class="section level3">
+<h3>5.3 Time-decay model</h3>
+<p>The time-decay model assumes a gradually increasing enrollment
+rate:</p>
+<p><span class="math display">\[
+a(t) = \frac{\mu}{\delta}\left(1-e^{-\delta t}\right),
+\]</span></p>
+<p>with corresponding mean function</p>
+<p><span class="math display">\[
+\mu(t)=\frac{\mu}{\delta}\left[t-\frac{1}{\delta}\left(1-e^{-\delta
+t}\right)\right].
+\]</span></p>
+<p>Parameterization:</p>
+<p><span class="math display">\[
+\theta = \{\log(\mu), \log(\delta)\}^\top.
+\]</span></p>
+</div>
+<div id="b-spline-enrollment-model" class="section level3">
+<h3>5.4 B-spline enrollment model</h3>
+<p>The B-spline model is used to flexibly capture non-monotone or
+otherwise irregular enrollment patterns. The daily enrollment rate is
+modeled as</p>
+<p><span class="math display">\[
+a(t)=\exp\{B(t)^\top\theta\},
+\]</span></p>
+<p>where <span class="math inline">\(B(t)\)</span> is a B-spline basis
+with <code>nknots</code> inner knots. This model is primarily useful
+<strong>after the trial has started</strong> and is not intended as a
+design-stage prior.</p>
+</div>
+<div id="piecewise-poisson-model" class="section level3">
+<h3>5.5 Piecewise Poisson model</h3>
+<p>The piecewise Poisson model assumes a constant enrollment rate within
+prespecified intervals:</p>
+<p><span class="math display">\[
+a(t)=\lambda_j, \qquad t \in [u_{j-1},u_j).
+\]</span></p>
+<p>Parameterization:</p>
+<p><span class="math display">\[
+\theta_j = \log(\lambda_j).
+\]</span></p>
+<p>The vector <code>accrualTime</code> contains the <strong>fixed left
+endpoints</strong> of the accrual intervals.</p>
+</div>
+<div id="enrollment-time-simulation" class="section level3">
+<h3>5.6 Enrollment-time simulation</h3>
+<p>For future enrollment simulation, the package uses an
+inverse-transform strategy equivalent to sequentially generating
+exponential waiting times on the cumulative-rate scale. If <span class="math inline">\(V_i\)</span> denotes the arrival time of the <span class="math inline">\(i\)</span>-th future subject, then</p>
+<p><span class="math display">\[
+V_i = \mu^{-1}\left\{\mu(t_0)+E_1+\cdots+E_i\right\},
+\]</span></p>
+<p>where <span class="math inline">\(E_1,E_2,\ldots\)</span> are
+independent standard exponential variables.</p>
+</div>
+</div>
+<div id="event-and-dropout-models" class="section level2">
+<h2>6. Event and dropout models</h2>
+<p>The event and dropout components are survival models for time from
+enrollment/randomization to event or dropout.</p>
+<p>Let <span class="math inline">\(T\)</span> denote a generic
+time-to-event random variable, with survival function</p>
+<p><span class="math display">\[
+S(t)=P(T&gt;t)
+\]</span></p>
+<p>and hazard</p>
+<p><span class="math display">\[
+h(t)=\lim_{\Delta t\to 0}
+\frac{P(t \le T &lt; t+\Delta t \mid T \ge t)}{\Delta t}.
+\]</span></p>
+<p>All event models may be used through <code>fitEvent()</code> and all
+standard dropout models through <code>fitDropout()</code>. The same
+high-level ideas apply to dropout, except that cure-aware and
+delayed-treatment-effect extensions are implemented for the
+<strong>event</strong> model rather than the dropout model.</p>
+<div id="supported-non-cure-event-models" class="section level3">
+<h3>6.1 Supported non-cure event models</h3>
+<ul>
+<li><code>&quot;exponential&quot;</code></li>
+<li><code>&quot;weibull&quot;</code></li>
+<li><code>&quot;log-logistic&quot;</code></li>
+<li><code>&quot;log-normal&quot;</code></li>
+<li><code>&quot;piecewise exponential&quot;</code></li>
+<li><code>&quot;model averaging&quot;</code></li>
+<li><code>&quot;spline&quot;</code></li>
+<li><code>&quot;cox&quot;</code></li>
+</ul>
+</div>
+<div id="exponential-model" class="section level3">
+<h3>6.2 Exponential model</h3>
+<p>The exponential model assumes constant hazard:</p>
+<p><span class="math display">\[
+h(t)=\lambda,
+\qquad
+S(t)=e^{-\lambda t}.
+\]</span></p>
+<p>In the non-cure implementation that follows the
+<code>eventPred</code> convention, the exponential model is
+parameterized on the regression scale as</p>
+<p><span class="math display">\[
+\log(\lambda)=\theta^\top x.
+\]</span></p>
+</div>
+<div id="weibull-model" class="section level3">
+<h3>6.3 Weibull model</h3>
+<p>For the Weibull model,</p>
+<p><span class="math display">\[
+h(t)=\frac{\kappa}{\lambda}\left(\frac{t}{\lambda}\right)^{\kappa-1},
+\qquad
+S(t)=\exp\left\{-\left(\frac{t}{\lambda}\right)^\kappa\right\}.
+\]</span></p>
+<p>This model accommodates increasing, constant, or decreasing hazard
+depending on the shape parameter <span class="math inline">\(\kappa\)</span>.</p>
+</div>
+<div id="log-logistic-model" class="section level3">
+<h3>6.4 Log-logistic model</h3>
+<p>The log-logistic model has survival function</p>
+<p><span class="math display">\[
+S(t)=\frac{1}{1+(t/\lambda)^\kappa},
+\]</span></p>
+<p>and can accommodate non-monotone hazard shapes.</p>
+</div>
+<div id="log-normal-model" class="section level3">
+<h3>6.5 Log-normal model</h3>
+<p>If <span class="math inline">\(\log(T) \sim N(\mu,\sigma^2)\)</span>,
+then</p>
+<p><span class="math display">\[
+S(t)=1-\Phi\left(\frac{\log(t)-\mu}{\sigma}\right).
+\]</span></p>
+<p>Like the log-logistic model, it can capture non-monotone hazard
+behavior.</p>
+</div>
+<div id="piecewise-exponential-model" class="section level3">
+<h3>6.6 Piecewise exponential model</h3>
+<p>The piecewise exponential model assumes constant hazard within
+user-specified intervals. If
+<code>piecewiseSurvivalTime = c(u_0, u_1, ..., u_J)</code>, then</p>
+<p><span class="math display">\[
+h(t)=\lambda_j, \qquad t\in[u_{j-1},u_j).
+\]</span></p>
+<p>This model is especially useful when the analyst has clinically
+meaningful phases of risk or wants a flexible but interpretable hazard
+model.</p>
+</div>
+<div id="model-averaging" class="section level3">
+<h3>6.7 Model averaging</h3>
+<p>The model-averaging event model combines Weibull and log-normal fits
+using BIC-based weights:</p>
+<p><span class="math display">\[
+S(t)=w_W S_W(t)+(1-w_W)S_{LN}(t),
+\]</span></p>
+<p>where the Weibull weight is</p>
+<p><span class="math display">\[
+w_W=
+\frac{\exp(-\tfrac{1}{2}BIC_W)}{\exp(-\tfrac{1}{2}BIC_W)+\exp(-\tfrac{1}{2}BIC_{LN})}.
+\]</span></p>
+<p>This option is useful when both models are plausible and the analyst
+wants a more robust parametric extrapolation.</p>
+</div>
+<div id="flexible-spline-model" class="section level3">
+<h3>6.8 Flexible spline model</h3>
+<p>The spline model is based on the Royston-Parmar framework. A
+transformed survival function is modeled as a natural cubic spline of
+log-time. With <span class="math inline">\(u=\log(t)\)</span>,</p>
+<p><span class="math display">\[
+g\{S(t)\}=c(u),
+\]</span></p>
+<p>where <code>scale</code> determines the transformation:</p>
+<ul>
+<li><code>scale = &quot;hazard&quot;</code>: <span class="math inline">\(g(S)=\log[-\log(S)]\)</span></li>
+<li><code>scale = &quot;odds&quot;</code>: <span class="math inline">\(g(S)=\log(1/S-1)\)</span></li>
+<li><code>scale = &quot;normal&quot;</code>: <span class="math inline">\(g(S)=-\Phi^{-1}(S)\)</span></li>
+</ul>
+<p>With zero inner knots, the spline model reduces to Weibull,
+log-logistic, or log-normal depending on the chosen scale.</p>
+</div>
+<div id="cox-model" class="section level3">
+<h3>6.9 Cox model</h3>
+<p>The Cox option fits a proportional-hazards model and then represents
+the fitted baseline hazard as a piecewise exponential model over
+observed event times. For projection beyond the last observed event
+time, the package extrapolates using a weighted average of hazard rates
+from the final <code>m</code> intervals.</p>
+<p>This is a practical option when users want semiparametric fitting on
+the observed time range but still need forward simulation.</p>
+</div>
+<div id="dropout-models" class="section level3">
+<h3>6.10 Dropout models</h3>
+<p><code>fitDropout()</code> supports the same standard non-cure model
+families as <code>fitEvent()</code> except that cure-aware and
+delayed-treatment-effect versions are not included for dropout. In
+<code>getPrediction()</code>, <code>dropout_model = &quot;none&quot;</code> is
+also allowed.</p>
+</div>
+</div>
+<div id="parameterization-used-in-the-merged-package" class="section level2">
+<h2>7. Parameterization used in the merged package</h2>
+<p>A major design feature of both upstream packages is the use of
+parameterizations that improve large-sample normality and make posterior
+simulation straightforward. The merged package retains that
+philosophy.</p>
+<div id="enrollment-parameterization" class="section level3">
+<h3>7.1 Enrollment parameterization</h3>
+<p>For non-cure enrollment models, the merged package follows the
+<code>eventPred</code> / <code>EventPredInCure</code> conventions:</p>
+<ul>
+<li>Poisson: <span class="math inline">\(\theta =
+\log(\lambda)\)</span></li>
+<li>Time-decay: <span class="math inline">\(\theta = (\log\mu,
+\log\delta)^\top\)</span></li>
+<li>B-spline: spline coefficients</li>
+<li>Piecewise Poisson: <span class="math inline">\(\theta_j =
+\log(\lambda_j)\)</span></li>
+</ul>
+</div>
+<div id="non-cure-eventdropout-parameterization" class="section level3">
+<h3>7.2 Non-cure event/dropout parameterization</h3>
+<p>For the core non-cure models inherited from <code>eventPred</code>,
+the package uses the same parameterization philosophy documented in the
+upstream package manual. In particular, the package-level documentation
+presents non-cure model parameters on a regression/AFT scale such
+as:</p>
+<ul>
+<li>exponential: <span class="math inline">\(\log(\lambda)=\theta^\top
+x\)</span></li>
+<li>Weibull/log-logistic/log-normal: <span class="math inline">\(\theta=(\beta^\top,\log\sigma)^\top\)</span></li>
+<li>piecewise exponential: baseline interval parameters plus optional
+covariate terms</li>
+<li>model averaging: block-diagonal parameter vector for Weibull and
+log-normal</li>
+<li>spline: spline basis coefficients and optional covariate
+effects</li>
+<li>Cox: baseline log-hazard increments plus regression
+coefficients</li>
+</ul>
+</div>
+<div id="cure-model-parameterization" class="section level3">
+<h3>7.3 Cure-model parameterization</h3>
+<p>For the Chen-style mixture-cure models adapted from
+<code>EventPredInCure</code>, the merged package uses the cure fraction
+as the <strong>first</strong> parameter:</p>
+<p><span class="math display">\[
+\theta_1 = \operatorname{logit}(p_{cure}),
+\qquad
+p_{cure}=\frac{e^{\theta_1}}{1+e^{\theta_1}}.
+\]</span></p>
+<p>The remaining elements depend on the baseline survival family.</p>
+<div id="exponential-with-cured-population" class="section level4">
+<h4>Exponential with cured population</h4>
+<p><span class="math display">\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\lambda)\}.
+\]</span></p>
+</div>
+<div id="weibull-with-cured-population" class="section level4">
+<h4>Weibull with cured population</h4>
+<p><span class="math display">\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\kappa),
+\log(\lambda)\}.
+\]</span></p>
+</div>
+<div id="log-logistic-with-cured-population" class="section level4">
+<h4>Log-logistic with cured population</h4>
+<p><span class="math display">\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\kappa),
+\log(\lambda)\}.
+\]</span></p>
+</div>
+<div id="log-normal-with-cured-population" class="section level4">
+<h4>Log-normal with cured population</h4>
+<p><span class="math display">\[
+\theta = \{\operatorname{logit}(p_{cure}), \mu, \log(\sigma)\}.
+\]</span></p>
+</div>
+<div id="piecewise-exponential-with-cured-population" class="section level4">
+<h4>Piecewise exponential with cured population</h4>
+<p><span class="math display">\[
+\theta = \{\operatorname{logit}(p_{cure}), \log(\lambda_1), \ldots,
+\log(\lambda_J)\}.
+\]</span></p>
+</div>
+</div>
+<div id="fixed-cure-rate-interface" class="section level3">
+<h3>7.4 Fixed cure-rate interface</h3>
+<p>A key merged enhancement is the <code>cure_rate</code> argument in
+<code>fitEvent()</code> and <code>getPrediction()</code>.</p>
+<p>When <code>cure_rate = NULL</code>, the cure fraction is estimated
+from the data or is expected to be supplied explicitly in the prior
+object.</p>
+<p>When <code>cure_rate</code> is provided:</p>
+<ul>
+<li>the cure fraction is treated as <strong>fixed</strong>, not
+estimated;</li>
+<li>the returned <code>theta</code> still includes
+<code>qlogis(cure_rate)</code> as the first element for
+consistency;</li>
+<li>the first row and column of <code>vtheta</code> are set to zero, so
+posterior draws do not perturb the fixed cure fraction;</li>
+<li>when <code>by_treatment = TRUE</code>, <code>cure_rate</code> may be
+either a scalar or a vector with one element per arm.</li>
+</ul>
+<p>This is the main interface you asked to expose clearly in the
+vignette.</p>
+</div>
+</div>
+<div id="mixture-cure-interpretation" class="section level2">
+<h2>8. Mixture-cure interpretation</h2>
+<p>For cure-aware event models, the survival function takes the form</p>
+<p><span class="math display">\[
+S(t)=p_{cure} + (1-p_{cure})S_u(t),
+\]</span></p>
+<p>where:</p>
+<ul>
+<li><span class="math inline">\(p_{cure}\)</span> is the long-term cured
+fraction,</li>
+<li><span class="math inline">\(S_u(t)\)</span> is the survival function
+among the uncured subpopulation.</li>
+</ul>
+<p>This formulation is appropriate when a clinically meaningful fraction
+of participants may never experience the event within the scientific
+time horizon.</p>
+</div>
+<div id="prediction-algorithms" class="section level2">
+<h2>9. Prediction algorithms</h2>
+<div id="ongoing-subjects" class="section level3">
+<h3>9.1 Ongoing subjects</h3>
+<p>For an ongoing subject enrolled at time <span class="math inline">\(U_i\)</span>, observed at data cut <span class="math inline">\(t_0\)</span>, the underlying event time must
+satisfy</p>
+<p><span class="math display">\[
+T_i &gt; t_0-U_i.
+\]</span></p>
+<p>The package therefore generates future event times from the
+<strong>conditional distribution given survival up to the data
+cut</strong>. Conceptually,</p>
+<p><span class="math display">\[
+P(T_i &gt; t \mid T_i &gt; t_0-U_i) = \frac{S(t)}{S(t_0-U_i)}.
+\]</span></p>
+<p>This conditional simulation is central to event projection after a
+data cut.</p>
+</div>
+<div id="new-subjects" class="section level3">
+<h3>9.2 New subjects</h3>
+<p>For subjects not yet enrolled at the data cut:</p>
+<ol style="list-style-type: decimal">
+<li>enrollment times are simulated from the chosen enrollment
+model;</li>
+<li>event times are generated from the chosen event model;</li>
+<li>dropout times are generated from the chosen dropout model, if
+applicable;</li>
+<li>event, dropout, and administrative censoring are combined to
+determine whether the event contributes to the future event count.</li>
+</ol>
+</div>
+<div id="posterior-simulation-versus-fixed-parameter-simulation" class="section level3">
+<h3>9.3 Posterior simulation versus fixed-parameter simulation</h3>
+<p>By default, prediction uses approximate posterior uncertainty:</p>
+<p><span class="math display">\[
+\theta^{(b)} \sim N(\hat\theta, \hat V_\theta),
+\]</span></p>
+<p>or the closest numerically stable equivalent.</p>
+<p>If <code>fix_parameter = TRUE</code>, the package does
+<strong>not</strong> perturb the fitted parameters and instead
+conditions on the point estimate or fixed prior values. This is often
+useful for deterministic scenario exploration.</p>
+</div>
+</div>
+<div id="function-by-function-guide" class="section level2">
+<h2>10. Function-by-function guide</h2>
+<div id="summarizeobserved" class="section level3">
+<h3>10.1 <code>summarizeObserved()</code></h3>
+<p>Use <code>summarizeObserved()</code> as the first stop in any
+analysis-stage workflow.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>obs1 <span class="ot">&lt;-</span> <span class="fu">summarizeObserved</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;enrollment and event&quot;</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">by_treatment =</span> <span class="cn">FALSE</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>)</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>obs2 <span class="ot">&lt;-</span> <span class="fu">summarizeObserved</span>(</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;event only&quot;</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">by_treatment =</span> <span class="cn">FALSE</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>)</span></code></pre></div>
+<p>Typical outputs include:</p>
+<ul>
+<li>trial start and cutoff summaries;</li>
+<li>enrollment duration and current enrollment count;</li>
+<li>current event, dropout, and ongoing-subject counts;</li>
+<li>cumulative enrollment and event data;</li>
+<li>daily enrollment rates;</li>
+<li>Kaplan-Meier plots for time to event and time to dropout.</li>
+</ul>
+</div>
+<div id="fitenrollment" class="section level3">
+<h3>10.2 <code>fitEnrollment()</code></h3>
+<p>Fit one or more candidate enrollment models and compare them.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>fit_enroll_bs <span class="ot">&lt;-</span> <span class="fu">fitEnrollment</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">enroll_model =</span> <span class="st">&quot;b-spline&quot;</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">nknots =</span> <span class="dv">1</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>)</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>fit_enroll_td <span class="ot">&lt;-</span> <span class="fu">fitEnrollment</span>(</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">enroll_model =</span> <span class="st">&quot;time-decay&quot;</span>,</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>)</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>fit_enroll_pw <span class="ot">&lt;-</span> <span class="fu">fitEnrollment</span>(</span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>  <span class="at">enroll_model =</span> <span class="st">&quot;piecewise poisson&quot;</span>,</span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>  <span class="at">accrualTime =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">90</span>, <span class="dv">180</span>),</span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="predictenrollment" class="section level3">
+<h3>10.3 <code>predictEnrollment()</code></h3>
+<p>Use a fitted enrollment model or a prior object to generate future
+arrival times and summarize the time to target enrollment.</p>
+<div id="analysis-stage-enrollment-prediction" class="section level4">
+<h4>Analysis-stage enrollment prediction</h4>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>pred_enroll <span class="ot">&lt;-</span> <span class="fu">predictEnrollment</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">target_n =</span> <span class="dv">300</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">enroll_fit =</span> fit_enroll_bs<span class="sc">$</span>fit,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">lags =</span> <span class="dv">30</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="design-stage-enrollment-prediction" class="section level4">
+<h4>Design-stage enrollment prediction</h4>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>design_enroll_fit <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;piecewise poisson&quot;</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">log</span>(<span class="dv">26</span> <span class="sc">/</span> <span class="dv">9</span> <span class="sc">*</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">9</span>) <span class="sc">/</span> <span class="fl">30.4375</span>),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fu">diag</span>(<span class="dv">9</span>) <span class="sc">*</span> <span class="fl">1e-8</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">accrualTime =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">8</span>) <span class="sc">*</span> <span class="fl">30.4375</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>design_enroll_pred <span class="ot">&lt;-</span> <span class="fu">predictEnrollment</span>(</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">target_n =</span> <span class="dv">300</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">enroll_fit =</span> design_enroll_fit,</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+<div id="fitevent" class="section level3">
+<h3>10.4 <code>fitEvent()</code></h3>
+<p>Fit one or more event models to the observed time-to-event data.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>fit_event_weibull <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull&quot;</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>)</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>fit_event_piecewise <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;piecewise exponential&quot;</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  <span class="at">piecewiseSurvivalTime =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">140</span>, <span class="dv">352</span>),</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>)</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>fit_event_ma <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;model averaging&quot;</span>,</span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>)</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>fit_event_cox <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;cox&quot;</span>,</span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>  <span class="at">m =</span> <span class="dv">5</span>,</span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="fitdropout" class="section level3">
+<h3>10.5 <code>fitDropout()</code></h3>
+<p>Fit a dropout model analogously.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>fit_dropout_exp <span class="ot">&lt;-</span> <span class="fu">fitDropout</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>fit_dropout_piecewise <span class="ot">&lt;-</span> <span class="fu">fitDropout</span>(</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;piecewise exponential&quot;</span>,</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">piecewiseDropoutTime =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">180</span>),</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="predictevent" class="section level3">
+<h3>10.6 <code>predictEvent()</code></h3>
+<p>Use fitted event and dropout models to project the timing of future
+events.</p>
+<div id="after-enrollment-completion" class="section level4">
+<h4>After enrollment completion</h4>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>pred_event_complete <span class="ot">&lt;-</span> <span class="fu">predictEvent</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">event_fit =</span> fit_event_piecewise<span class="sc">$</span>fit,</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="at">dropout_fit =</span> fit_dropout_exp<span class="sc">$</span>fit,</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="before-enrollment-completion" class="section level4">
+<h4>Before enrollment completion</h4>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>fit_event_interim <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull&quot;</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>)</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>fit_dropout_interim <span class="ot">&lt;-</span> <span class="fu">fitDropout</span>(</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>)</span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a>pred_event_interim <span class="ot">&lt;-</span> <span class="fu">predictEvent</span>(</span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a>  <span class="at">newSubjects =</span> pred_enroll<span class="sc">$</span>newSubjects,</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a>  <span class="at">event_fit =</span> fit_event_interim<span class="sc">$</span>fit,</span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a>  <span class="at">dropout_fit =</span> fit_dropout_interim<span class="sc">$</span>fit,</span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+<div id="getprediction" class="section level3">
+<h3>10.7 <code>getPrediction()</code></h3>
+<p><code>getPrediction()</code> is the main high-level interface. It
+fits models when needed, generates projections, and returns summarized
+results.</p>
+<div id="analysis-stage-before-enrollment-completion" class="section level4">
+<h4>Analysis stage before enrollment completion</h4>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>pred_full_interim <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="at">df =</span> interimData1,</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;enrollment and event&quot;</span>,</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="at">target_n =</span> <span class="dv">300</span>,</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  <span class="at">enroll_model =</span> <span class="st">&quot;time-decay&quot;</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull&quot;</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="analysis-stage-after-enrollment-completion" class="section level4">
+<h4>Analysis stage after enrollment completion</h4>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>pred_full_complete <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;event only&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;cox&quot;</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">m =</span> <span class="dv">5</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="design-stage-projection-from-priors" class="section level4">
+<h4>Design-stage projection from priors</h4>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>event_prior <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;piecewise exponential&quot;</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">log</span>(<span class="fu">c</span>(<span class="fl">0.0533</span>, <span class="fl">0.0309</span>) <span class="sc">/</span> <span class="fl">30.4375</span>),</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fu">diag</span>(<span class="dv">2</span>) <span class="sc">*</span> <span class="fl">1e-8</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">piecewiseSurvivalTime =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">6</span>) <span class="sc">*</span> <span class="fl">30.4375</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>)</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>dropout_prior <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">log</span>((<span class="sc">-</span><span class="fu">log</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fl">0.05</span>) <span class="sc">/</span> <span class="dv">12</span>) <span class="sc">/</span> <span class="fl">30.4375</span>),</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fl">1e-8</span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>)</span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>pred_design <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a>  <span class="at">df =</span> <span class="cn">NULL</span>,</span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;enrollment and event&quot;</span>,</span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a>  <span class="at">target_n =</span> <span class="dv">300</span>,</span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a>  <span class="at">enroll_prior =</span> design_enroll_fit,</span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a>  <span class="at">event_prior =</span> event_prior,</span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a>  <span class="at">dropout_prior =</span> dropout_prior,</span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+</div>
+<div id="covariate-adjusted-non-cure-models" class="section level2">
+<h2>11. Covariate-adjusted non-cure models</h2>
+<p>Covariates are currently supported for standard non-cure event and
+dropout models.</p>
+<p>To keep the example self-contained, the code below constructs a
+temporary data set with mock baseline covariates.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>interim_cov <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(interimData2)</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>interim_cov<span class="sc">$</span>age <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fu">rnorm</span>(<span class="fu">nrow</span>(interim_cov), <span class="at">mean =</span> <span class="dv">62</span>, <span class="at">sd =</span> <span class="dv">8</span>))</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>interim_cov<span class="sc">$</span>sex <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;Female&quot;</span>, <span class="st">&quot;Male&quot;</span>), <span class="fu">nrow</span>(interim_cov), <span class="at">replace =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>pred_cov <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  <span class="at">df =</span> interim_cov,</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;event only&quot;</span>,</span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull&quot;</span>,</span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a>  <span class="at">covariates_event =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;sex&quot;</span>),</span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a>  <span class="at">covariates_dropout =</span> <span class="fu">c</span>(<span class="st">&quot;age&quot;</span>),</span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="cure-aware-workflows" class="section level2">
+<h2>12. Cure-aware workflows</h2>
+<p>This section focuses on the cure-model functionality that motivated
+your update request.</p>
+<div id="supported-cure-aware-event-models" class="section level3">
+<h3>12.1 Supported cure-aware event models</h3>
+<p>The merged package supports the following mixture-cure event models
+in <code>fitEvent()</code> and <code>getPrediction()</code>:</p>
+<ul>
+<li><code>&quot;exponential with cured population&quot;</code></li>
+<li><code>&quot;weibull with cured population&quot;</code></li>
+<li><code>&quot;log-normal with cured population&quot;</code></li>
+<li><code>&quot;log-logistic with cured population&quot;</code></li>
+<li><code>&quot;piecewise exponential with cured population&quot;</code></li>
+</ul>
+<p>In addition, delayed-treatment-effect variants are supported in
+design-stage prediction workflows:</p>
+<ul>
+<li><code>&quot;exponential with cured population and delayed treatment&quot;</code></li>
+<li><code>&quot;weibull with cured population and delayed treatment&quot;</code></li>
+<li><code>&quot;log-normal with cured population and delayed treatment&quot;</code></li>
+<li><code>&quot;log-logistic with cured population and delayed treatment&quot;</code></li>
+<li><code>&quot;piecewise exponential with cured population and delayed treatment&quot;</code></li>
+</ul>
+</div>
+<div id="fitting-a-cure-model-with-estimated-cure-rate" class="section level3">
+<h3>12.2 Fitting a cure model with estimated cure rate</h3>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>fit_event_cure_est <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull with cured population&quot;</span>,</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="fitting-a-cure-model-with-fixed-cure-rate" class="section level3">
+<h3>12.3 Fitting a cure model with fixed cure rate</h3>
+<p>This is the new interface that should be documented explicitly.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>fit_event_cure_fixed <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull with cured population&quot;</span>,</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a>  <span class="at">cure_rate =</span> <span class="fl">0.25</span>,</span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a>)</span></code></pre></div>
+<p>In the fitted object:</p>
+<ul>
+<li><code>fit_event_cure_fixed$fit$theta[1]</code> is
+<code>qlogis(0.25)</code>;</li>
+<li>the first row and column of <code>vtheta</code> are zero;</li>
+<li>only the uncured-population survival parameters are estimated.</li>
+</ul>
+</div>
+<div id="fixed-cure-rate-by-treatment-arm" class="section level3">
+<h3>12.4 Fixed cure rate by treatment arm</h3>
+<p>When <code>by_treatment = TRUE</code>, a scalar
+<code>cure_rate</code> applies to all arms, while a vector applies
+arm-specific cure fractions.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>fit_event_cure_fixed_by_trt <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull with cured population&quot;</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>  <span class="at">by_treatment =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  <span class="at">cure_rate =</span> <span class="fu">c</span>(<span class="fl">0.20</span>, <span class="fl">0.35</span>),</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="piecewise-exponential-cure-model-with-fixed-cure-rate" class="section level3">
+<h3>12.5 Piecewise exponential cure model with fixed cure rate</h3>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>fit_event_cure_piecewise_fixed <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;piecewise exponential with cured population&quot;</span>,</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>  <span class="at">cure_rate =</span> <span class="fl">0.30</span>,</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  <span class="at">piecewiseSurvivalTime =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">120</span>, <span class="dv">240</span>),</span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="event-projection-with-fixed-cure-rate-from-observed-data" class="section level3">
+<h3>12.6 Event projection with fixed cure rate from observed data</h3>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>pred_event_cure_fixed <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;event only&quot;</span>,</span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull with cured population&quot;</span>,</span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a>  <span class="at">cure_rate =</span> <span class="fl">0.25</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="design-stage-projection-with-fixed-cure-rate" class="section level3">
+<h3>12.7 Design-stage projection with fixed cure rate</h3>
+<p>When <code>cure_rate</code> is supplied, the design-stage
+<code>event_prior</code> for a cure model may omit the cure parameter
+and only provide the non-cure baseline parameters. The merged code pads
+the prior internally by inserting <code>qlogis(cure_rate)</code> as the
+first element of <code>theta</code> and a zero-variance row/column in
+<code>vtheta</code>.</p>
+<div id="weibull-cure-model-example" class="section level4">
+<h4>Weibull cure model example</h4>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a>event_prior_cure_fixed <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;weibull with cured population&quot;</span>,</span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">c</span>(<span class="fu">log</span>(<span class="fl">1.2</span>), <span class="fu">log</span>(<span class="dv">300</span>)),</span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fu">diag</span>(<span class="fu">c</span>(<span class="fl">1e-8</span>, <span class="fl">1e-8</span>))</span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a>)</span>
+<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a>pred_design_cure_fixed <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a>  <span class="at">df =</span> <span class="cn">NULL</span>,</span>
+<span id="cb20-9"><a href="#cb20-9" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;enrollment and event&quot;</span>,</span>
+<span id="cb20-10"><a href="#cb20-10" tabindex="-1"></a>  <span class="at">target_n =</span> <span class="dv">300</span>,</span>
+<span id="cb20-11"><a href="#cb20-11" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb20-12"><a href="#cb20-12" tabindex="-1"></a>  <span class="at">enroll_prior =</span> design_enroll_fit,</span>
+<span id="cb20-13"><a href="#cb20-13" tabindex="-1"></a>  <span class="at">event_prior =</span> event_prior_cure_fixed,</span>
+<span id="cb20-14"><a href="#cb20-14" tabindex="-1"></a>  <span class="at">dropout_prior =</span> dropout_prior,</span>
+<span id="cb20-15"><a href="#cb20-15" tabindex="-1"></a>  <span class="at">cure_rate =</span> <span class="fl">0.30</span>,</span>
+<span id="cb20-16"><a href="#cb20-16" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb20-17"><a href="#cb20-17" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb20-18"><a href="#cb20-18" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb20-19"><a href="#cb20-19" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb20-20"><a href="#cb20-20" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="piecewise-exponential-cure-model-example" class="section level4">
+<h4>Piecewise exponential cure model example</h4>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a>event_prior_cure_fixed_pw <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;piecewise exponential with cured population&quot;</span>,</span>
+<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">log</span>(<span class="fu">c</span>(<span class="fl">0.0040</span>, <span class="fl">0.0025</span>, <span class="fl">0.0015</span>)),</span>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fu">diag</span>(<span class="dv">3</span>) <span class="sc">*</span> <span class="fl">1e-8</span>,</span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>  <span class="at">piecewiseSurvivalTime =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">120</span>, <span class="dv">240</span>)</span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a>)</span>
+<span id="cb21-7"><a href="#cb21-7" tabindex="-1"></a></span>
+<span id="cb21-8"><a href="#cb21-8" tabindex="-1"></a>pred_design_cure_fixed_pw <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
+<span id="cb21-9"><a href="#cb21-9" tabindex="-1"></a>  <span class="at">df =</span> <span class="cn">NULL</span>,</span>
+<span id="cb21-10"><a href="#cb21-10" tabindex="-1"></a>  <span class="at">to_predict =</span> <span class="st">&quot;enrollment and event&quot;</span>,</span>
+<span id="cb21-11"><a href="#cb21-11" tabindex="-1"></a>  <span class="at">target_n =</span> <span class="dv">300</span>,</span>
+<span id="cb21-12"><a href="#cb21-12" tabindex="-1"></a>  <span class="at">target_d =</span> <span class="dv">200</span>,</span>
+<span id="cb21-13"><a href="#cb21-13" tabindex="-1"></a>  <span class="at">enroll_prior =</span> design_enroll_fit,</span>
+<span id="cb21-14"><a href="#cb21-14" tabindex="-1"></a>  <span class="at">event_prior =</span> event_prior_cure_fixed_pw,</span>
+<span id="cb21-15"><a href="#cb21-15" tabindex="-1"></a>  <span class="at">dropout_prior =</span> dropout_prior,</span>
+<span id="cb21-16"><a href="#cb21-16" tabindex="-1"></a>  <span class="at">cure_rate =</span> <span class="fl">0.30</span>,</span>
+<span id="cb21-17"><a href="#cb21-17" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>,</span>
+<span id="cb21-18"><a href="#cb21-18" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">200</span>,</span>
+<span id="cb21-19"><a href="#cb21-19" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb21-20"><a href="#cb21-20" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb21-21"><a href="#cb21-21" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+<div id="delayed-treatment-effect-at-the-design-stage" class="section level3">
+<h3>12.8 Delayed treatment effect at the design stage</h3>
+<p>The delayed-treatment-effect extensions are intended for
+<strong>design-stage simulation</strong>, not for fitting
+delayed-treatment models to observed data in
+<code>fitEvent()</code>.</p>
+<p>A typical design-stage specification is arm-specific and passed
+through <code>event_prior</code> when
+<code>by_treatment = TRUE</code>.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>event_prior_delay <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>event_prior_delay[[<span class="dv">1</span>]] <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;weibull with cured population and delayed treatment&quot;</span>,</span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">c</span>(<span class="fu">qlogis</span>(<span class="fl">0.20</span>), <span class="fu">log</span>(<span class="fl">1.1</span>), <span class="fu">log</span>(<span class="dv">320</span>), <span class="dv">0</span>, <span class="dv">1</span>),</span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="dv">5</span>, <span class="dv">5</span>)</span>
+<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a>)</span>
+<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>event_prior_delay[[<span class="dv">2</span>]] <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>  <span class="at">model =</span> <span class="st">&quot;weibull with cured population and delayed treatment&quot;</span>,</span>
+<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">c</span>(<span class="fu">qlogis</span>(<span class="fl">0.35</span>), <span class="fu">log</span>(<span class="fl">1.1</span>), <span class="fu">log</span>(<span class="dv">320</span>), <span class="dv">60</span>, <span class="fl">0.70</span>),</span>
+<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>  <span class="at">vtheta =</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="dv">5</span>, <span class="dv">5</span>)</span>
+<span id="cb22-11"><a href="#cb22-11" tabindex="-1"></a>)</span></code></pre></div>
+<p>The last two elements encode the delayed-effect portion in the
+EventPredInCure-style design-stage parameterization.</p>
+</div>
+</div>
+<div id="by-treatment-workflows" class="section level2">
+<h2>13. By-treatment workflows</h2>
+<p>Set <code>by_treatment = TRUE</code> to fit or predict separately by
+treatment arm.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a>fit_event_by_trt <span class="ot">&lt;-</span> <span class="fu">fitEvent</span>(</span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a>  <span class="at">event_model =</span> <span class="st">&quot;weibull&quot;</span>,</span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a>  <span class="at">by_treatment =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a>)</span>
+<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a></span>
+<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a>fit_dropout_by_trt <span class="ot">&lt;-</span> <span class="fu">fitDropout</span>(</span>
+<span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a>  <span class="at">df =</span> interimData2,</span>
+<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;exponential&quot;</span>,</span>
+<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>  <span class="at">by_treatment =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
+<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a>)</span></code></pre></div>
+<p>At the design stage, by-treatment priors are typically supplied as
+one list element per treatment group.</p>
+</div>
+<div id="model-selection-and-practical-guidance" class="section level2">
+<h2>14. Model selection and practical guidance</h2>
+<p>A practical model-selection strategy is:</p>
+<ol style="list-style-type: decimal">
+<li>start with <code>summarizeObserved()</code>;</li>
+<li>compare several enrollment/event/dropout models;</li>
+<li>use fitted plots together with AIC/BIC;</li>
+<li>favor clinically interpretable models when several fits are
+similar;</li>
+<li>use cure models only when a long-term plateau is scientifically
+plausible;</li>
+<li>reserve delayed-treatment-effect models for planning scenarios where
+non-proportional hazards are expected.</li>
+</ol>
+<p>Some practical rules of thumb:</p>
+<ul>
+<li>use <code>piecewise exponential</code> when hazard phases are
+clinically meaningful;</li>
+<li>use <code>model averaging</code> when Weibull and log-normal are
+both credible extrapolation candidates;</li>
+<li>use <code>cox</code> when semiparametric fitting is desired but
+forward projection is still required;</li>
+<li>use <code>fix_parameter = TRUE</code> for deterministic scenario
+summaries;</li>
+<li>use <code>target_t</code> in <code>getPrediction()</code> or
+<code>predictEvent()</code> when you need the predictive probability of
+reaching the event target by a specific future time.</li>
+</ul>
+</div>
+<div id="current-implementation-limitations-in-the-merged-package" class="section level2">
+<h2>15. Current implementation limitations in the merged package</h2>
+<p>Users should be aware of the following current constraints.</p>
+<ul>
+<li>Cure-aware event models do <strong>not</strong> currently support
+<code>covariates_event</code>.</li>
+<li><code>event_prior_with_covariates</code> is not supported for
+cure-aware or delayed-treatment event models.</li>
+<li>Pooling treatment-specific <code>event_prior</code> objects into an
+overall prior is not supported for cure-aware models.</li>
+<li>Delayed-treatment-effect models are intended for design-stage
+simulation workflows, not observed-data fitting via
+<code>fitEvent()</code>.</li>
+<li>Dropout models do not currently have cure-aware or
+delayed-treatment-effect extensions.</li>
+</ul>
+<p>These limitations are implementation choices in the current merged
+package rather than general limitations of the underlying statistical
+literature.</p>
+</div>
+<div id="reproducibility" class="section level2">
+<h2>16. Reproducibility</h2>
+<p>For reproducible simulation output:</p>
+<ol style="list-style-type: decimal">
+<li>call <code>set.seed()</code> immediately before
+<code>predictEnrollment()</code>, <code>predictEvent()</code>, or
+<code>getPrediction()</code>; or</li>
+<li>use <code>seed.num</code> where available.</li>
+</ol>
+<p>When exact upstream comparison is important, a good working
+expectation is:</p>
+<ul>
+<li>non-cure, non-delay branches should match <code>eventPred</code>
+most closely;</li>
+<li>cure-aware or delayed-treatment-effect branches should match
+<code>EventPredInCure</code> most closely.</li>
+</ul>
+<p>Minor differences may still arise when merged validation, numerical
+safeguards, or edge-case handling differ.</p>
+</div>
+<div id="additional-internal-modeling-helpers" class="section level2">
+<h2>17. Additional internal modeling helpers</h2>
+<p>The package also includes lower-level helpers that support cure-aware
+event modeling and simulation, including:</p>
+<ul>
+<li><code>Chen_2016_event_time()</code> and related helpers</li>
+<li>cure-model survival-probability helpers such as
+<code>SP_Chen_weibull()</code></li>
+<li>cure-model log-likelihood helpers such as
+<code>loglik_Chen_weibull()</code></li>
+</ul>
+<p>These are primarily implementation-level utilities that support the
+higher-level fitting and prediction interfaces.</p>
+</div>
+<div id="session-information" class="section level2">
+<h2>18. Session information</h2>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
+</div>
+<div id="references" class="section level2">
+<h2>19. References</h2>
+<p>Bagiella, E. and Heitjan, D. F. (2001). Predicting analysis times in
+randomized clinical trials. <em>Statistics in Medicine</em>, 20,
+2055-2063.</p>
+<p>Chen, T.-T. (2016). Predicting analysis times in randomized clinical
+trials with cancer immunotherapy. <em>BMC Medical Research
+Methodology</em>, 16, 1-10.</p>
+<p>Royston, P. and Parmar, M. K. B. (2002). Flexible parametric
+proportional-hazards and proportional-odds models for censored survival
+data, with application to prognostic modelling and estimation of
+treatment effects. <em>Statistics in Medicine</em>, 21, 2175-2197.</p>
+<p>Ying, G.-S. and Heitjan, D. F. (2008). Weibull prediction of event
+times in clinical trials. <em>Pharmaceutical Statistics</em>, 7,
+107-120.</p>
+<p>Zhang, X. and Long, Q. (2010). Stochastic modeling and prediction for
+accrual in clinical trials. <em>Statistics in Medicine</em>, 29,
+649-658.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
