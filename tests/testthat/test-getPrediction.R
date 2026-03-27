@@ -103,6 +103,78 @@ testthat::test_that("getPrediction can omit duplicated large outputs", {
 })
 
 
+testthat::test_that("getPrediction returns a prior-informed event fit", {
+  set.seed(3000)
+
+  event_prior <- list(
+    model = "weibull",
+    theta = c(log(500), 0),
+    vtheta = diag(c(0.05, 0.05))
+  )
+
+  pred1 <- getPrediction(
+    df = interimData2,
+    to_predict = "event only",
+    target_d = 200,
+    event_model = "weibull",
+    event_prior = event_prior,
+    dropout_model = "none",
+    pilevel = 0.90,
+    nreps = 20,
+    showsummary = FALSE,
+    showplot = FALSE
+  )
+
+  testthat::expect_true("event_fit_posterior" %in% names(pred1))
+  testthat::expect_true(all(c("fit", "kmdf", "dffit", "text") %in%
+                              names(pred1$event_fit_posterior)))
+  testthat::expect_equal(
+    pred1$event_fit_posterior$fit$model,
+    pred1$event_fit$fit$model
+  )
+  testthat::expect_gt(
+    sum(abs(pred1$event_fit$dffit$surv - pred1$event_fit_posterior$dffit$surv)),
+    0
+  )
+})
+
+
+testthat::test_that("getPrediction returns a prior-informed dropout fit", {
+  set.seed(3000)
+
+  dropout_prior <- list(
+    model = "exponential",
+    theta = log(1 / 800),
+    vtheta = 0.05
+  )
+
+  pred1 <- getPrediction(
+    df = interimData2,
+    to_predict = "event only",
+    target_d = 200,
+    event_model = "weibull",
+    dropout_model = "exponential",
+    dropout_prior = dropout_prior,
+    pilevel = 0.90,
+    nreps = 20,
+    showsummary = FALSE,
+    showplot = FALSE
+  )
+
+  testthat::expect_true("dropout_fit_posterior" %in% names(pred1))
+  testthat::expect_true(all(c("fit", "kmdf", "dffit", "text") %in%
+                              names(pred1$dropout_fit_posterior)))
+  testthat::expect_equal(
+    pred1$dropout_fit_posterior$fit$model,
+    pred1$dropout_fit$fit$model
+  )
+  testthat::expect_gt(
+    sum(abs(pred1$dropout_fit$dffit$surv - pred1$dropout_fit_posterior$dffit$surv)),
+    0
+  )
+})
+
+
 testthat::test_that("getPrediction rejects design-stage event-only requests", {
   testthat::expect_error(
     getPrediction(

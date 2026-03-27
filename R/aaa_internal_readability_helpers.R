@@ -583,8 +583,10 @@
                                             enroll_fit = NULL,
                                             enroll_pred = NULL,
                                             event_fit = NULL,
+                                            event_fit_posterior = NULL,
                                             event_fit_with_covariates = NULL,
                                             dropout_fit = NULL,
+                                            dropout_fit_posterior = NULL,
                                             dropout_fit_with_covariates = NULL,
                                             event_pred = NULL,
                                             dropout_model = "none",
@@ -637,6 +639,9 @@
     out$enroll_fit <- enroll_fit
     out$enroll_pred <- enroll_pred
     out$event_fit <- event_fit
+    if (!is.null(event_fit_posterior)) {
+      out$event_fit_posterior <- event_fit_posterior
+    }
 
     if (!is.null(covariates_event)) {
       out$event_fit_with_covariates <- event_fit_with_covariates
@@ -644,6 +649,9 @@
 
     if (tolower(dropout_model) != "none") {
       out$dropout_fit <- dropout_fit
+      if (!is.null(dropout_fit_posterior)) {
+        out$dropout_fit_posterior <- dropout_fit_posterior
+      }
 
       if (!is.null(covariates_dropout)) {
         out$dropout_fit_with_covariates <- dropout_fit_with_covariates
@@ -657,12 +665,18 @@
     } else {
       out$event_fit <- event_fit
     }
+    if (!is.null(event_fit_posterior)) {
+      out$event_fit_posterior <- event_fit_posterior
+    }
 
     if (tolower(dropout_model) != "none") {
       if (!is.null(covariates_dropout)) {
         out$dropout_fit_with_covariates <- dropout_fit_with_covariates
       } else {
         out$dropout_fit <- dropout_fit
+      }
+      if (!is.null(dropout_fit_posterior)) {
+        out$dropout_fit_posterior <- dropout_fit_posterior
       }
     }
 

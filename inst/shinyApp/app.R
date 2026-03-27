@@ -14,6 +14,179 @@ library(plotly, warn.conflicts = FALSE)
 library(EventProjection)
 
 
+.app_supported_prior_models <- function(kind) {
+  switch(
+    kind,
+    enrollment = c("Poisson", "Time-decay", "Piecewise Poisson"),
+    event = c(
+      "Exponential",
+      "Weibull",
+      "Log-logistic",
+      "Log-normal",
+      "Piecewise exponential",
+      "Exponential with cured population",
+      "Weibull with cured population",
+      "Log-logistic with cured population",
+      "Log-normal with cured population",
+      "Piecewise exponential with cured population"
+    ),
+    dropout = c(
+      "Exponential",
+      "Weibull",
+      "Log-logistic",
+      "Log-normal",
+      "Piecewise exponential"
+    ),
+    stop("Unknown prior kind.")
+  )
+}
+
+
+.app_model_supports_prior <- function(kind, model) {
+  !is.null(model) && model %in% .app_supported_prior_models(kind)
+}
+
+
+.app_is_fit_output_collection <- function(x) {
+  is.list(x) &&
+    length(x) > 0 &&
+    is.list(x[[1]]) &&
+    "fit_plot" %in% names(x[[1]])
+}
+
+
+.app_get_fit_output_element <- function(x, index) {
+  if (is.null(x)) {
+    return(NULL)
+  }
+
+  if (.app_is_fit_output_collection(x)) {
+    if (index > length(x)) {
+      return(NULL)
+    }
+    return(x[[index]])
+  }
+
+  if (index == 1L) {
+    return(x)
+  }
+
+  NULL
+}
+
+
+.app_fit_output_count <- function(x) {
+  if (is.null(x)) {
+    return(0L)
+  }
+
+  if (.app_is_fit_output_collection(x)) {
+    return(length(x))
+  }
+
+  1L
+}
+
+
+.app_prior_parameter_labels <- function(kind, model, piecewise_times = NULL,
+                                        fixed_cure_rate = FALSE) {
+  if (is.null(model)) {
+    return(character(0))
+  }
+
+  piecewise_labels <- function(prefix) {
+    if (is.null(piecewise_times)) {
+      return(character(0))
+    }
+    paste0(prefix, seq_len(length(piecewise_times)), ")")
+  }
+
+  cure_label <- if (fixed_cure_rate) character(0) else "logit(cure_rate)"
+
+  switch(
+    kind,
+    enrollment = switch(
+      model,
+      "Poisson" = "log(rate)",
+      "Time-decay" = c("log(mu)", "log(delta)"),
+      "Piecewise Poisson" = piecewise_labels("log(rate_"),
+      character(0)
+    ),
+    event = switch(
+      model,
+      "Exponential" = "log(hazard)",
+      "Weibull" = c("log(scale)", "-log(shape)"),
+      "Log-logistic" = c("location_log", "log(scale_log)"),
+      "Log-normal" = c("mean_log", "log(sd_log)"),
+      "Piecewise exponential" = piecewise_labels("log(hazard_"),
+      "Exponential with cured population" = c(cure_label, "log(hazard)"),
+      "Weibull with cured population" = c(cure_label, "log(shape)", "log(scale)"),
+      "Log-logistic with cured population" = c(cure_label, "log(shape)", "log(scale)"),
+      "Log-normal with cured population" = c(cure_label, "mean_log", "log(sd_log)"),
+      "Piecewise exponential with cured population" = c(cure_label, piecewise_labels("log(hazard_")),
+      character(0)
+    ),
+    dropout = switch(
+      model,
+      "Exponential" = "log(hazard)",
+      "Weibull" = c("log(scale)", "-log(shape)"),
+      "Log-logistic" = c("location_log", "log(scale_log)"),
+      "Log-normal" = c("mean_log", "log(sd_log)"),
+      "Piecewise exponential" = piecewise_labels("log(hazard_"),
+      character(0)
+    ),
+    character(0)
+  )
+}
+
+
+.app_default_prior_theta <- function(labels) {
+  matrix(
+    rep(0, length(labels)),
+    nrow = 1,
+    dimnames = list(NULL, labels)
+  )
+}
+
+
+.app_default_prior_vtheta <- function(labels) {
+  out <- diag(1e6, nrow = length(labels), ncol = length(labels))
+  dimnames(out) <- list(labels, labels)
+  out
+}
+
+
+.app_prior_input_section <- function(prefix, index, treatment_label, labels,
+                                     theta_value, vtheta_value,
+                                     show_treatment_header = FALSE) {
+  section_body <- tagList(
+    if (show_treatment_header) tags$h5(treatment_label),
+    shinyMatrix::matrixInput(
+      paste0(prefix, "_theta_", index),
+      label = "Prior mean (theta)",
+      value = theta_value,
+      inputClass = "numeric",
+      rows = list(names = FALSE, extend = FALSE),
+      cols = list(names = TRUE, extend = FALSE)
+    ),
+    shinyMatrix::matrixInput(
+      paste0(prefix, "_vtheta_", index),
+      label = "Prior covariance (vtheta)",
+      value = vtheta_value,
+      inputClass = "numeric",
+      rows = list(names = TRUE, extend = FALSE),
+      cols = list(names = TRUE, extend = FALSE)
+    )
+  )
+
+  if (show_treatment_header) {
+    return(tags$div(class = "well", section_body))
+  }
+
+  section_body
+}
+
+
 # conditional panels for treatment allocation
 f_treatment_allocation <- function(i) {
   conditionalPanel(
@@ -445,6 +618,8 @@ enrollmentPanel <- tabPanel(
       )
     ),
 
+    uiOutput("enroll_prior_controls"),
+
     plotlyOutput("enroll_fit")
   )
 )
@@ -589,6 +764,8 @@ eventPanel <- tabPanel(
       )
     ),
 
+    uiOutput("event_prior_controls"),
+
     uiOutput("event_fit_ic"),
     uiOutput("event_fit")
   )
@@ -697,6 +874,8 @@ dropoutPanel <- tabPanel(
              )
       )
     ),
+
+    uiOutput("dropout_prior_controls"),
 
     uiOutput("dropout_fit_ic"),
     uiOutput("dropout_fit")
@@ -1868,6 +2047,67 @@ server <- function(input, output, session) {
   })
 
 
+  current_prediction_event_fit_posterior <- function() {
+    if (input$stage == "Design stage" ||
+        !isTRUE(input$use_event_prior_rt) ||
+        !.app_model_supports_prior("event", input$event_model)) {
+      return(NULL)
+    }
+
+    if (is.null(input$predict) || input$predict < 1) {
+      return(NULL)
+    }
+
+    current_pred <- tryCatch(pred(), error = function(e) NULL)
+    if (is.null(current_pred) ||
+        current_pred$stage != input$stage ||
+        current_pred$to_predict != to_predict()) {
+      return(NULL)
+    }
+
+    posterior_fit <- current_pred$event_fit_posterior
+    posterior_first <- .app_get_fit_output_element(posterior_fit, 1L)
+
+    if (is.null(posterior_first) ||
+        tolower(posterior_first$fit$model) != tolower(input$event_model)) {
+      return(NULL)
+    }
+
+    posterior_fit
+  }
+
+
+  current_prediction_dropout_fit_posterior <- function() {
+    if (input$stage == "Design stage" ||
+        input$dropout_model == "None" ||
+        !isTRUE(input$use_dropout_prior_rt) ||
+        !.app_model_supports_prior("dropout", input$dropout_model)) {
+      return(NULL)
+    }
+
+    if (is.null(input$predict) || input$predict < 1) {
+      return(NULL)
+    }
+
+    current_pred <- tryCatch(pred(), error = function(e) NULL)
+    if (is.null(current_pred) ||
+        current_pred$stage != input$stage ||
+        current_pred$to_predict != to_predict()) {
+      return(NULL)
+    }
+
+    posterior_fit <- current_pred$dropout_fit_posterior
+    posterior_first <- .app_get_fit_output_element(posterior_fit, 1L)
+
+    if (is.null(posterior_first) ||
+        tolower(posterior_first$fit$model) != tolower(input$dropout_model)) {
+      return(NULL)
+    }
+
+    posterior_fit
+  }
+
+
   # dropout fit
   dropout_fit <- reactive({
     if (!is.null(df()) && input$dropout_model != "None") {
@@ -1889,6 +2129,410 @@ server <- function(input, output, session) {
                  spline_k_dropout(), input$spline_scale_dropout,
                  m_dropout(), showplot = FALSE, input$by_treatment)
     }
+  })
+
+
+  current_or_default_prior_matrix <- function(input_id, default_value) {
+    current_value <- input[[input_id]]
+
+    if (is.null(current_value)) {
+      return(default_value)
+    }
+
+    current_numeric <- suppressWarnings(as.numeric(current_value))
+    if (length(current_numeric) != length(default_value) ||
+        any(!is.finite(current_numeric))) {
+      return(default_value)
+    }
+
+    out <- matrix(
+      current_numeric,
+      nrow = nrow(default_value),
+      ncol = ncol(default_value)
+    )
+    dimnames(out) <- dimnames(default_value)
+    out
+  }
+
+
+  prior_editor_ui <- function(prefix, labels) {
+    treatment_names <- treatment_description()[seq_len(max(1, k()))]
+    show_headers <- length(treatment_names) > 1
+
+    sections <- lapply(seq_along(treatment_names), function(i) {
+      theta_default <- .app_default_prior_theta(labels)
+      vtheta_default <- .app_default_prior_vtheta(labels)
+
+      theta_value <- current_or_default_prior_matrix(
+        paste0(prefix, "_theta_", i),
+        theta_default
+      )
+      vtheta_value <- current_or_default_prior_matrix(
+        paste0(prefix, "_vtheta_", i),
+        vtheta_default
+      )
+
+      .app_prior_input_section(
+        prefix = prefix,
+        index = i,
+        treatment_label = treatment_names[i],
+        labels = labels,
+        theta_value = theta_value,
+        vtheta_value = vtheta_value,
+        show_treatment_header = show_headers
+      )
+    })
+
+    if (length(sections) == 1) {
+      return(sections[[1]])
+    }
+
+    tabs <- lapply(seq_along(sections), function(i) {
+      tabPanel(treatment_names[i], sections[[i]])
+    })
+
+    do.call(tabsetPanel, c(list(type = "tabs"), tabs))
+  }
+
+
+  build_realtime_prior <- function(prefix, kind, model, labels) {
+    treatment_names <- treatment_description()[seq_len(max(1, k()))]
+    prior_list <- vector("list", length(treatment_names))
+
+    for (i in seq_along(treatment_names)) {
+      theta_raw <- input[[paste0(prefix, "_theta_", i)]]
+      vtheta_raw <- input[[paste0(prefix, "_vtheta_", i)]]
+
+      req(!is.null(theta_raw), !is.null(vtheta_raw))
+
+      theta <- suppressWarnings(as.numeric(theta_raw))
+      vtheta_vec <- suppressWarnings(as.numeric(vtheta_raw))
+
+      valid_dim <- length(theta) == length(labels) &&
+        length(vtheta_vec) == length(labels)^2
+      valid_finite <- valid_dim &&
+        all(is.finite(theta)) && all(is.finite(vtheta_vec))
+
+      vtheta <- matrix(
+        vtheta_vec,
+        nrow = length(labels),
+        ncol = length(labels)
+      )
+      symmetric <- isTRUE(all.equal(
+        vtheta, t(vtheta),
+        tolerance = 1e-8,
+        check.attributes = FALSE
+      ))
+      positive_definite <- !inherits(try(chol(vtheta), silent = TRUE), "try-error")
+
+      if (!valid_dim || !valid_finite) {
+        showNotification(
+          paste("Prior mean and covariance must be numeric and match the",
+                "expected parameter dimension for", model, ".")
+        )
+      }
+      if (valid_dim && valid_finite && !symmetric) {
+        showNotification("Prior covariance matrix must be symmetric.")
+      }
+      if (valid_dim && valid_finite && symmetric && !positive_definite) {
+        showNotification("Prior covariance matrix must be positive definite.")
+      }
+
+      req(valid_dim, valid_finite, symmetric, positive_definite)
+
+      names(theta) <- labels
+      dimnames(vtheta) <- list(labels, labels)
+
+      prior_i <- list(
+        model = model,
+        theta = theta,
+        vtheta = vtheta
+      )
+
+      if (kind == "enrollment" && model == "Piecewise Poisson") {
+        prior_i$accrualTime <- accrualTime()
+      }
+
+      if (kind == "event" &&
+          model %in% c("Piecewise exponential",
+                       "Piecewise exponential with cured population")) {
+        prior_i$piecewiseSurvivalTime <- piecewiseSurvivalTime()
+      }
+
+      if (kind == "dropout" && model == "Piecewise exponential") {
+        prior_i$piecewiseDropoutTime <- piecewiseDropoutTime()
+      }
+
+      prior_list[[i]] <- prior_i
+    }
+
+    if (length(prior_list) == 1) {
+      prior_list[[1]]
+    } else {
+      prior_list
+    }
+  }
+
+
+  restore_realtime_prior_inputs <- function(prefix, prior_object) {
+    if (is.null(prior_object)) {
+      return(invisible(NULL))
+    }
+
+    prior_list <- if ("model" %in% names(prior_object)) {
+      list(prior_object)
+    } else {
+      prior_object
+    }
+
+    for (i in seq_along(prior_list)) {
+      theta_value <- matrix(
+        prior_list[[i]]$theta,
+        nrow = 1,
+        dimnames = list(NULL, names(prior_list[[i]]$theta))
+      )
+      vtheta_value <- prior_list[[i]]$vtheta
+
+      if (is.null(dim(vtheta_value))) {
+        vtheta_value <- matrix(
+          vtheta_value,
+          nrow = length(prior_list[[i]]$theta),
+          ncol = length(prior_list[[i]]$theta),
+          dimnames = list(names(prior_list[[i]]$theta),
+                          names(prior_list[[i]]$theta))
+        )
+      }
+
+      updateMatrixInput(session, paste0(prefix, "_theta_", i), value = theta_value)
+      updateMatrixInput(session, paste0(prefix, "_vtheta_", i), value = vtheta_value)
+    }
+
+    invisible(NULL)
+  }
+
+
+  output$enroll_prior_controls <- renderUI({
+    req(input$stage != "Design stage")
+
+    model <- input$enroll_model
+    if (is.null(model)) {
+      return(NULL)
+    }
+
+    if (!.app_model_supports_prior("enrollment", model)) {
+      return(helpText("Prior input is not supported for this enrollment model."))
+    }
+
+    piecewise_times <- NULL
+    if (model == "Piecewise Poisson") {
+      piecewise_times <- tryCatch(accrualTime(), error = function(e) NULL)
+      if (is.null(piecewise_times)) {
+        return(helpText("Specify valid accrual interval start times before entering a prior."))
+      }
+    }
+
+    labels <- .app_prior_parameter_labels(
+      kind = "enrollment",
+      model = model,
+      piecewise_times = piecewise_times
+    )
+
+    tagList(
+      checkboxInput(
+        "use_enroll_prior_rt",
+        label = "Use prior for enrollment model",
+        value = isTRUE(input$use_enroll_prior_rt)
+      ),
+      if (isTRUE(input$use_enroll_prior_rt)) {
+        tagList(
+          helpText(
+            paste("Enter theta and vtheta on the package parameterization scale.",
+                  "Defaults are a weak prior template.")
+          ),
+          prior_editor_ui("enroll_prior_rt", labels)
+        )
+      }
+    )
+  })
+
+
+  output$event_prior_controls <- renderUI({
+    req(input$stage != "Design stage")
+
+    model <- input$event_model
+    if (is.null(model)) {
+      return(NULL)
+    }
+
+    if (!.app_model_supports_prior("event", model)) {
+      return(helpText("Prior input is not supported for this event model."))
+    }
+
+    piecewise_times <- NULL
+    if (model %in% c("Piecewise exponential",
+                     "Piecewise exponential with cured population")) {
+      piecewise_times <- tryCatch(piecewiseSurvivalTime(), error = function(e) NULL)
+      if (is.null(piecewise_times)) {
+        return(helpText("Specify valid event interval start times before entering a prior."))
+      }
+    }
+
+    labels <- .app_prior_parameter_labels(
+      kind = "event",
+      model = model,
+      piecewise_times = piecewise_times,
+      fixed_cure_rate = isTRUE(input$use_fixed_cure_rate)
+    )
+
+    tagList(
+      checkboxInput(
+        "use_event_prior_rt",
+        label = "Use prior for event model",
+        value = isTRUE(input$use_event_prior_rt)
+      ),
+      if (isTRUE(input$use_event_prior_rt)) {
+        tagList(
+          helpText(
+            paste("Enter theta and vtheta on the package parameterization scale.",
+                  "Defaults are a weak prior template.")
+          ),
+          prior_editor_ui("event_prior_rt", labels)
+        )
+      }
+    )
+  })
+
+
+  output$dropout_prior_controls <- renderUI({
+    req(input$stage != "Design stage")
+
+    model <- input$dropout_model
+    if (is.null(model) || model == "None") {
+      return(NULL)
+    }
+
+    if (!.app_model_supports_prior("dropout", model)) {
+      return(helpText("Prior input is not supported for this dropout model."))
+    }
+
+    piecewise_times <- NULL
+    if (model == "Piecewise exponential") {
+      piecewise_times <- tryCatch(piecewiseDropoutTime(), error = function(e) NULL)
+      if (is.null(piecewise_times)) {
+        return(helpText("Specify valid dropout interval start times before entering a prior."))
+      }
+    }
+
+    labels <- .app_prior_parameter_labels(
+      kind = "dropout",
+      model = model,
+      piecewise_times = piecewise_times
+    )
+
+    tagList(
+      checkboxInput(
+        "use_dropout_prior_rt",
+        label = "Use prior for dropout model",
+        value = isTRUE(input$use_dropout_prior_rt)
+      ),
+      if (isTRUE(input$use_dropout_prior_rt)) {
+        tagList(
+          helpText(
+            paste("Enter theta and vtheta on the package parameterization scale.",
+                  "Defaults are a weak prior template.")
+          ),
+          prior_editor_ui("dropout_prior_rt", labels)
+        )
+      }
+    )
+  })
+
+
+  realtime_enroll_prior <- reactive({
+    if (input$stage == "Design stage" ||
+        !isTRUE(input$use_enroll_prior_rt) ||
+        !.app_model_supports_prior("enrollment", input$enroll_model)) {
+      return(NULL)
+    }
+
+    piecewise_times <- if (input$enroll_model == "Piecewise Poisson") {
+      accrualTime()
+    } else {
+      NULL
+    }
+
+    labels <- .app_prior_parameter_labels(
+      kind = "enrollment",
+      model = input$enroll_model,
+      piecewise_times = piecewise_times
+    )
+
+    build_realtime_prior(
+      prefix = "enroll_prior_rt",
+      kind = "enrollment",
+      model = input$enroll_model,
+      labels = labels
+    )
+  })
+
+
+  realtime_event_prior <- reactive({
+    if (input$stage == "Design stage" ||
+        !isTRUE(input$use_event_prior_rt) ||
+        !.app_model_supports_prior("event", input$event_model)) {
+      return(NULL)
+    }
+
+    piecewise_times <- if (input$event_model %in% c(
+      "Piecewise exponential",
+      "Piecewise exponential with cured population"
+    )) {
+      piecewiseSurvivalTime()
+    } else {
+      NULL
+    }
+
+    labels <- .app_prior_parameter_labels(
+      kind = "event",
+      model = input$event_model,
+      piecewise_times = piecewise_times,
+      fixed_cure_rate = isTRUE(input$use_fixed_cure_rate)
+    )
+
+    build_realtime_prior(
+      prefix = "event_prior_rt",
+      kind = "event",
+      model = input$event_model,
+      labels = labels
+    )
+  })
+
+
+  realtime_dropout_prior <- reactive({
+    if (input$stage == "Design stage" ||
+        !isTRUE(input$use_dropout_prior_rt) ||
+        !.app_model_supports_prior("dropout", input$dropout_model)) {
+      return(NULL)
+    }
+
+    piecewise_times <- if (input$dropout_model == "Piecewise exponential") {
+      piecewiseDropoutTime()
+    } else {
+      NULL
+    }
+
+    labels <- .app_prior_parameter_labels(
+      kind = "dropout",
+      model = input$dropout_model,
+      piecewise_times = piecewise_times
+    )
+
+    build_realtime_prior(
+      prefix = "dropout_prior_rt",
+      kind = "dropout",
+      model = input$dropout_model,
+      labels = labels
+    )
   })
 
 
@@ -2104,6 +2748,7 @@ server <- function(input, output, session) {
           to_predict = to_predict(),
           target_n = target_n(),
           enroll_model = input$enroll_model,
+          enroll_prior = realtime_enroll_prior(),
           nknots = nknots(),
           lags = lags(),
           accrualTime = accrualTime(),
@@ -2151,15 +2796,18 @@ server <- function(input, output, session) {
           target_n = target_n(),
           target_d = target_d(),
           enroll_model = input$enroll_model,
+          enroll_prior = realtime_enroll_prior(),
           nknots = nknots(),
           lags = lags(),
           accrualTime = accrualTime(),
           event_model = input$event_model,
+          event_prior = realtime_event_prior(),
           piecewiseSurvivalTime = piecewiseSurvivalTime(),
           k = spline_k(),
           scale = input$spline_scale,
           m = m_event(),
           dropout_model = input$dropout_model,
+          dropout_prior = realtime_dropout_prior(),
           piecewiseDropoutTime = piecewiseDropoutTime(),
           k_dropout = spline_k_dropout(),
           scale_dropout = input$spline_scale_dropout,
@@ -2211,11 +2859,13 @@ server <- function(input, output, session) {
           to_predict = to_predict(),
           target_d = target_d(),
           event_model = input$event_model,
+          event_prior = realtime_event_prior(),
           piecewiseSurvivalTime = piecewiseSurvivalTime(),
           k = spline_k(),
           scale = input$spline_scale,
           m = m_event(),
           dropout_model = input$dropout_model,
+          dropout_prior = realtime_dropout_prior(),
           piecewiseDropoutTime = piecewiseDropoutTime(),
           k_dropout = spline_k_dropout(),
           scale_dropout = input$spline_scale_dropout,
@@ -2405,34 +3055,36 @@ server <- function(input, output, session) {
   observe({
     walk(1:6, function(i) {
       output[[paste0("event_fit_output", i)]] <- renderPlotly({
-        if (i <= k() && !is.null(event_fit())) {
-          if (input$by_treatment && k() > 1) {
-            event_fit()[[i]]$fit_plot
-          } else {
-            event_fit()$fit_plot
-          }
-        } else {
-          NULL
-        }
+        fit_element <- .app_get_fit_output_element(event_fit(), i)
+        if (!is.null(fit_element)) fit_element$fit_plot else NULL
+      })
+
+      output[[paste0("event_fit_posterior_output", i)]] <- renderPlotly({
+        fit_element <- .app_get_fit_output_element(
+          current_prediction_event_fit_posterior(),
+          i
+        )
+        if (!is.null(fit_element)) fit_element$fit_plot else NULL
       })
 
       output[[paste0("dropout_fit_output", i)]] <- renderPlotly({
-        if (i <= k()) {
-          if (input$by_treatment && k() > 1 && !is.null(dropout_fit())) {
-            dropout_fit()[[i]]$fit_plot
-          } else {
-            dropout_fit()$fit_plot
-          }
-        } else {
-          NULL
-        }
+        fit_element <- .app_get_fit_output_element(dropout_fit(), i)
+        if (!is.null(fit_element)) fit_element$fit_plot else NULL
+      })
+
+      output[[paste0("dropout_fit_posterior_output", i)]] <- renderPlotly({
+        fit_element <- .app_get_fit_output_element(
+          current_prediction_dropout_fit_posterior(),
+          i
+        )
+        if (!is.null(fit_element)) fit_element$fit_plot else NULL
       })
     })
   })
 
 
   event_fit_outputs <- reactive({
-    outputs <- map(1:k(), function(i) {
+    outputs <- map(seq_len(min(.app_fit_output_count(event_fit()), 6L)), function(i) {
       plotlyOutput(paste0("event_fit_output", i))
     })
 
@@ -2440,13 +3092,56 @@ server <- function(input, output, session) {
   })
 
 
+  event_fit_posterior_outputs <- reactive({
+    posterior_fit <- current_prediction_event_fit_posterior()
+
+    if (is.null(posterior_fit)) {
+      if (!isTRUE(input$use_event_prior_rt) ||
+          !.app_model_supports_prior("event", input$event_model)) {
+        return(helpText(
+          "Provide an event prior for a supported model to display the prior-informed fit."
+        ))
+      }
+
+      return(helpText(
+        "Click Predict after entering or changing the event prior to display the prior-informed fit."
+      ))
+    }
+
+    outputs <- map(seq_len(min(.app_fit_output_count(posterior_fit), 6L)), function(i) {
+      plotlyOutput(paste0("event_fit_posterior_output", i))
+    })
+
+    tagList(outputs)
+  })
+
+
   output$event_fit <- renderUI({
-    event_fit_outputs()
+    tagList(
+      tags$div(
+        style = "margin-bottom: 12px;",
+        tags$p(
+          tags$b("Observed-data fit: "),
+          "This curve is fitted from the observed data using likelihood only. ",
+          "Any AIC/BIC values shown on this tab correspond to this fit."
+        ),
+        tags$p(
+          tags$b("Prior-informed fit used for prediction: "),
+          "When an event prior is provided, this additional curve combines prior + likelihood. ",
+          "Prediction results use this prior-informed fit."
+        )
+      ),
+      tags$h4("Observed-data fit"),
+      event_fit_outputs(),
+      tags$hr(),
+      tags$h4("Prior-informed fit used for prediction"),
+      event_fit_posterior_outputs()
+    )
   })
 
 
   dropout_fit_outputs <- reactive({
-    outputs <- map(1:k(), function(i) {
+    outputs <- map(seq_len(min(.app_fit_output_count(dropout_fit()), 6L)), function(i) {
       plotlyOutput(paste0("dropout_fit_output", i))
     })
 
@@ -2454,8 +3149,59 @@ server <- function(input, output, session) {
   })
 
 
+  dropout_fit_posterior_outputs <- reactive({
+    if (input$dropout_model == "None") {
+      return(helpText("No dropout model is selected."))
+    }
+
+    posterior_fit <- current_prediction_dropout_fit_posterior()
+
+    if (is.null(posterior_fit)) {
+      if (!isTRUE(input$use_dropout_prior_rt) ||
+          !.app_model_supports_prior("dropout", input$dropout_model)) {
+        return(helpText(
+          "Provide a dropout prior for a supported model to display the prior-informed fit."
+        ))
+      }
+
+      return(helpText(
+        "Click Predict after entering or changing the dropout prior to display the prior-informed fit."
+      ))
+    }
+
+    outputs <- map(seq_len(min(.app_fit_output_count(posterior_fit), 6L)), function(i) {
+      plotlyOutput(paste0("dropout_fit_posterior_output", i))
+    })
+
+    tagList(outputs)
+  })
+
+
   output$dropout_fit <- renderUI({
-    dropout_fit_outputs()
+    if (input$dropout_model == "None") {
+      return(helpText("No dropout model is selected."))
+    }
+
+    tagList(
+      tags$div(
+        style = "margin-bottom: 12px;",
+        tags$p(
+          tags$b("Observed-data fit: "),
+          "This curve is fitted from the observed data using likelihood only. ",
+          "Any AIC/BIC values shown on this tab correspond to this fit."
+        ),
+        tags$p(
+          tags$b("Prior-informed fit used for prediction: "),
+          "When a dropout prior is provided, this additional curve combines prior + likelihood. ",
+          "Prediction results use this prior-informed fit."
+        )
+      ),
+      tags$h4("Observed-data fit"),
+      dropout_fit_outputs(),
+      tags$hr(),
+      tags$h4("Prior-informed fit used for prediction"),
+      dropout_fit_posterior_outputs()
+    )
   })
 
 
@@ -3376,6 +4122,11 @@ server <- function(input, output, session) {
         delta = delta(),
         piecewise_poisson_rate = piecewise_poisson_rate(),
         enroll_model = input$enroll_model,
+        use_enroll_prior_rt = isTRUE(input$use_enroll_prior_rt),
+        realtime_enroll_prior = tryCatch(
+          if (isTRUE(input$use_enroll_prior_rt)) isolate(realtime_enroll_prior()) else NULL,
+          error = function(e) NULL
+        ),
         nknots = nknots(),
         lags = lags(),
         accrualTime = matrix(
@@ -3413,6 +4164,11 @@ server <- function(input, output, session) {
           delay_effect_survival(), nrow = 2,
           dimnames = list(c("Lag (days)", "Hazard ratio after lag"), treatment_description())),
         event_model = input$event_model,
+        use_event_prior_rt = isTRUE(input$use_event_prior_rt),
+        realtime_event_prior = tryCatch(
+          if (isTRUE(input$use_event_prior_rt)) isolate(realtime_event_prior()) else NULL,
+          error = function(e) NULL
+        ),
         piecewiseSurvivalTime = matrix(
           piecewiseSurvivalTime(), ncol = 1,
           dimnames = list(paste("Interval",
@@ -3443,6 +4199,11 @@ server <- function(input, output, session) {
                                 1:nrow(piecewise_exponential_dropout())),
                           c("Starting time", treatment_description()))),
         dropout_model = input$dropout_model,
+        use_dropout_prior_rt = isTRUE(input$use_dropout_prior_rt),
+        realtime_dropout_prior = tryCatch(
+          if (isTRUE(input$use_dropout_prior_rt)) isolate(realtime_dropout_prior()) else NULL,
+          error = function(e) NULL
+        ),
         piecewiseDropoutTime = matrix(
           piecewiseDropoutTime(), ncol = 1,
           dimnames = list(paste("Interval",
@@ -3692,6 +4453,24 @@ server <- function(input, output, session) {
                              value=x$m_dropout)
         }
       }
+    }
+
+    if (x$stage != "Design stage") {
+      if (!is.null(x$use_enroll_prior_rt)) {
+        updateCheckboxInput(session, "use_enroll_prior_rt", value = x$use_enroll_prior_rt)
+      }
+      if (!is.null(x$use_event_prior_rt)) {
+        updateCheckboxInput(session, "use_event_prior_rt", value = x$use_event_prior_rt)
+      }
+      if (!is.null(x$use_dropout_prior_rt)) {
+        updateCheckboxInput(session, "use_dropout_prior_rt", value = x$use_dropout_prior_rt)
+      }
+
+      session$onFlushed(function() {
+        restore_realtime_prior_inputs("enroll_prior_rt", x$realtime_enroll_prior)
+        restore_realtime_prior_inputs("event_prior_rt", x$realtime_event_prior)
+        restore_realtime_prior_inputs("dropout_prior_rt", x$realtime_dropout_prior)
+      }, once = TRUE)
     }
   })
 }

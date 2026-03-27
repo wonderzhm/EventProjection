@@ -276,9 +276,14 @@ to \code{FALSE} reduces the size of the returned object.}
 \value{
 A list that includes the fits of observed data models,
 as well as simulated enrollment data for new subjects and
-simulated event data for ongoing and new subjects. Large returned simulation
-objects can be omitted with \code{return_subject_data} and
-\code{return_simulation_data}.
+simulated event data for ongoing and new subjects. When an
+analysis-stage event prior is provided, the returned object also includes
+\code{event_fit_posterior}, a prior-informed event fit used for prediction.
+When an analysis-stage dropout prior is provided, the returned object also
+includes \code{dropout_fit_posterior}, the corresponding prior-informed
+dropout fit used for prediction.
+Large returned simulation objects can be omitted with
+\code{return_subject_data} and \code{return_simulation_data}.
 
 
 This merged implementation is based on the original \code{getPrediction()}

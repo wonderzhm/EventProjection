@@ -225,9 +225,14 @@
 #' Please retain original package authorship/credit per upstream licenses.
 #' @return A list that includes the fits of observed data models,
 #' as well as simulated enrollment data for new subjects and
-#' simulated event data for ongoing and new subjects. Large returned simulation
-#' objects can be omitted with \code{return_subject_data} and
-#' \code{return_simulation_data}.
+#' simulated event data for ongoing and new subjects. When an
+#' analysis-stage event prior is provided, the returned object also includes
+#' \code{event_fit_posterior}, a prior-informed event fit used for prediction.
+#' When an analysis-stage dropout prior is provided, the returned object also
+#' includes \code{dropout_fit_posterior}, the corresponding prior-informed
+#' dropout fit used for prediction.
+#' Large returned simulation objects can be omitted with
+#' \code{return_subject_data} and \code{return_simulation_data}.
 #'
 #'
 #' This merged implementation is based on the original \code{getPrediction()}
@@ -399,8 +404,10 @@ getPrediction <- function(
   observed <- NULL
   enroll_fit <- NULL
   event_fit <- NULL
+  event_fit_posterior <- NULL
   event_fit_w_x <- NULL
   dropout_fit <- NULL
+  dropout_fit_posterior <- NULL
   dropout_fit_w_x <- NULL
   enroll_pred <- NULL
   event_pred <- NULL
@@ -1457,6 +1464,19 @@ getPrediction <- function(
         event_fit1 <- NULL
       }
 
+      if (!is.null(event_fit) && !is.null(event_fit1) && !is.null(event_prior)) {
+        event_fit_posterior <- .ep_build_posterior_event_fit_output(
+          event_fit = event_fit,
+          posterior_fit = event_fit1,
+          piecewise_survival_time = piecewiseSurvivalTime,
+          k = k,
+          scale = scale,
+          m = m,
+          generate_plot = generate_plot,
+          interactive_plot = interactive_plot
+        )
+      }
+
 
       # fit the event model with covariates
       if (!is.null(covariates_event)) {
@@ -1784,10 +1804,10 @@ getPrediction <- function(
           }
 
           # combine prior and likelihood to yield posterior
-          if (!is.null(dropout_prior)) {
-            if (!by_treatment) {
-              dropout_prior2 <- list()
-              dropout_prior2[[1]] <- dropout_prior1
+        if (!is.null(dropout_prior)) {
+          if (!by_treatment) {
+            dropout_prior2 <- list()
+            dropout_prior2[[1]] <- dropout_prior1
             } else {
               dropout_prior2 <- dropout_prior1
             }
@@ -1825,16 +1845,30 @@ getPrediction <- function(
             }
           }
 
-          if (!by_treatment) {
-            dropout_fit1 <- dropout_fit1[[1]]
-          }
-        } else {
-          dropout_fit1 <- NULL
+        if (!by_treatment) {
+          dropout_fit1 <- dropout_fit1[[1]]
         }
+      } else {
+        dropout_fit1 <- NULL
+      }
+
+      if (!is.null(dropout_fit) && !is.null(dropout_fit1) &&
+          !is.null(dropout_prior)) {
+        dropout_fit_posterior <- .ep_build_posterior_dropout_fit_output(
+          dropout_fit = dropout_fit,
+          posterior_fit = dropout_fit1,
+          piecewise_dropout_time = piecewiseDropoutTime,
+          k_dropout = k_dropout,
+          scale_dropout = scale_dropout,
+          m_dropout = m_dropout,
+          generate_plot = generate_plot,
+          interactive_plot = interactive_plot
+        )
+      }
 
 
-        # fit the dropout model with covariates
-        if (!is.null(covariates_dropout)) {
+      # fit the dropout model with covariates
+      if (!is.null(covariates_dropout)) {
           dropout_fit_w_x <- fitDropout(
             df = dt,
             dropout_model = dropout_model,
@@ -2133,8 +2167,10 @@ getPrediction <- function(
   observed_out <- observed
   enroll_fit_out <- if (!is.null(df)) enroll_fit else enroll_prior
   event_fit_out <- if (!is.null(event_fit)) event_fit else event_prior
+  event_fit_posterior_out <- event_fit_posterior
   event_fit_w_x_out <- event_fit_w_x
   dropout_fit_out <- if (!is.null(dropout_fit)) dropout_fit else dropout_prior
+  dropout_fit_posterior_out <- dropout_fit_posterior
   dropout_fit_w_x_out <- dropout_fit_w_x
 
   .ep_maybe_print_prediction_plot(
@@ -2152,8 +2188,10 @@ getPrediction <- function(
     enroll_fit = enroll_fit_out,
     enroll_pred = enroll_pred,
     event_fit = event_fit_out,
+    event_fit_posterior = event_fit_posterior_out,
     event_fit_with_covariates = event_fit_w_x_out,
     dropout_fit = dropout_fit_out,
+    dropout_fit_posterior = dropout_fit_posterior_out,
     dropout_fit_with_covariates = dropout_fit_w_x_out,
     event_pred = event_pred,
     dropout_model = dropout_model,
