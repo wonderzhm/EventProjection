@@ -88,6 +88,327 @@ library(EventProjection)
 }
 
 
+.app_format_param_value <- function(x) {
+  if (length(x) == 0 || is.null(x)) {
+    return(NA_character_)
+  }
+
+  x_num <- suppressWarnings(as.numeric(x))
+  if (any(!is.finite(x_num))) {
+    return(NA_character_)
+  }
+
+  formatted <- formatC(x_num, format = "fg", digits = 6)
+  if (length(formatted) == 1L) formatted else paste(formatted, collapse = ", ")
+}
+
+
+.app_interval_labels <- function(starts) {
+  starts <- as.numeric(starts)
+  ends <- c(starts[-1], Inf)
+
+  paste0(
+    "[",
+    vapply(starts, .app_format_param_value, character(1)),
+    ", ",
+    ifelse(is.finite(ends),
+           vapply(ends, .app_format_param_value, character(1)),
+           "Inf"),
+    ")"
+  )
+}
+
+
+.app_parameter_rows <- function(parameter, estimate) {
+  data.frame(
+    Parameter = as.character(parameter),
+    Estimate = vapply(estimate, function(x) {
+      if (is.character(x)) x else .app_format_param_value(x)
+    }, character(1)),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+.app_raw_theta_rows <- function(theta, prefix = "theta") {
+  .app_parameter_rows(
+    paste0(prefix, seq_along(theta)),
+    as.list(theta)
+  )
+}
+
+
+.app_piecewise_rows <- function(prefix, hazards, starts) {
+  n <- min(length(hazards), length(starts))
+  hazards <- hazards[seq_len(n)]
+  starts <- starts[seq_len(n)]
+  labels <- .app_interval_labels(starts)
+  .app_parameter_rows(
+    paste0(prefix, " ", labels),
+    as.list(exp(hazards))
+  )
+}
+
+
+.app_cox_parameter_rows <- function(theta, starts) {
+  baseline_count <- max(length(starts) - 1L, 0L)
+  baseline_count <- min(length(theta), baseline_count)
+
+  out <- NULL
+
+  if (baseline_count > 0L) {
+    out <- .app_piecewise_rows(
+      "Baseline hazard",
+      theta[seq_len(baseline_count)],
+      starts[seq_len(baseline_count)]
+    )
+  }
+
+  if (length(theta) > baseline_count) {
+    coef_rows <- .app_raw_theta_rows(
+      theta[(baseline_count + 1L):length(theta)],
+      prefix = "Coefficient "
+    )
+    out <- if (is.null(out)) coef_rows else rbind(out, coef_rows)
+  }
+
+  if (is.null(out)) {
+    return(.app_raw_theta_rows(theta))
+  }
+
+  out
+}
+
+
+.app_event_parameter_rows <- function(fit_element) {
+  fit <- fit_element$fit
+  theta <- fit$theta
+  model_lc <- tolower(fit$model)
+
+  if (model_lc == "exponential") {
+    return(.app_parameter_rows("Hazard rate", list(exp(theta[1]))))
+  }
+
+  if (model_lc == "weibull") {
+    return(.app_parameter_rows(
+      c("Shape", "Scale"),
+      list(exp(-theta[2]), exp(theta[1]))
+    ))
+  }
+
+  if (model_lc == "log-logistic") {
+    return(.app_parameter_rows(
+      c("Location (log scale)", "Scale (log scale)"),
+      list(theta[1], exp(theta[2]))
+    ))
+  }
+
+  if (model_lc == "log-normal") {
+    return(.app_parameter_rows(
+      c("Mean (log scale)", "SD (log scale)"),
+      list(theta[1], exp(theta[2]))
+    ))
+  }
+
+  if (model_lc == "piecewise exponential") {
+    starts <- fit$piecewiseSurvivalTime
+    if (is.null(starts)) starts <- 0
+    return(.app_piecewise_rows("Hazard", theta, starts))
+  }
+
+  if (model_lc == "model averaging") {
+    return(.app_parameter_rows(
+      c(
+        "Weight on Weibull component",
+        "Weibull shape",
+        "Weibull scale",
+        "Log-normal mean (log scale)",
+        "Log-normal SD (log scale)"
+      ),
+      list(fit$w1, exp(-theta[2]), exp(theta[1]), theta[3], exp(theta[4]))
+    ))
+  }
+
+  if (model_lc == "spline") {
+    out <- .app_parameter_rows(
+      c("Spline scale", "Knots"),
+      list(fit$scale, paste(.app_format_param_value(fit$knots), collapse = ", "))
+    )
+    return(rbind(out, .app_raw_theta_rows(theta, prefix = "Gamma ")))
+  }
+
+  if (model_lc == "cox") {
+    starts <- fit$piecewiseSurvivalTime
+    return(.app_cox_parameter_rows(theta, starts))
+  }
+
+  if (model_lc == "exponential with cured population") {
+    return(.app_parameter_rows(
+      c("Cure rate", "Hazard rate"),
+      list(stats::plogis(theta[1]), exp(theta[2]))
+    ))
+  }
+
+  if (model_lc == "weibull with cured population") {
+    return(.app_parameter_rows(
+      c("Cure rate", "Shape", "Scale"),
+      list(stats::plogis(theta[1]), exp(theta[2]), exp(theta[3]))
+    ))
+  }
+
+  if (model_lc == "log-logistic with cured population") {
+    return(.app_parameter_rows(
+      c("Cure rate", "Shape", "Scale"),
+      list(stats::plogis(theta[1]), exp(theta[2]), exp(theta[3]))
+    ))
+  }
+
+  if (model_lc == "log-normal with cured population") {
+    return(.app_parameter_rows(
+      c("Cure rate", "Mean (log scale)", "SD (log scale)"),
+      list(stats::plogis(theta[1]), theta[2], exp(theta[3]))
+    ))
+  }
+
+  if (model_lc == "piecewise exponential with cured population") {
+    starts <- fit$piecewiseSurvivalTime
+    if (is.null(starts)) starts <- 0
+    return(rbind(
+      .app_parameter_rows("Cure rate", list(stats::plogis(theta[1]))),
+      .app_piecewise_rows("Hazard", theta[-1], starts)
+    ))
+  }
+
+  .app_raw_theta_rows(theta)
+}
+
+
+.app_dropout_parameter_rows <- function(fit_element) {
+  fit <- fit_element$fit
+  theta <- fit$theta
+  model_lc <- tolower(fit$model)
+
+  if (model_lc == "exponential") {
+    return(.app_parameter_rows("Hazard rate", list(exp(theta[1]))))
+  }
+
+  if (model_lc == "weibull") {
+    return(.app_parameter_rows(
+      c("Shape", "Scale"),
+      list(exp(-theta[2]), exp(theta[1]))
+    ))
+  }
+
+  if (model_lc == "log-logistic") {
+    return(.app_parameter_rows(
+      c("Location (log scale)", "Scale (log scale)"),
+      list(theta[1], exp(theta[2]))
+    ))
+  }
+
+  if (model_lc == "log-normal") {
+    return(.app_parameter_rows(
+      c("Mean (log scale)", "SD (log scale)"),
+      list(theta[1], exp(theta[2]))
+    ))
+  }
+
+  if (model_lc == "piecewise exponential") {
+    starts <- fit$piecewiseDropoutTime
+    if (is.null(starts)) starts <- 0
+    return(.app_piecewise_rows("Hazard", theta, starts))
+  }
+
+  if (model_lc == "model averaging") {
+    return(.app_parameter_rows(
+      c(
+        "Weight on Weibull component",
+        "Weibull shape",
+        "Weibull scale",
+        "Log-normal mean (log scale)",
+        "Log-normal SD (log scale)"
+      ),
+      list(fit$w1, exp(-theta[2]), exp(theta[1]), theta[3], exp(theta[4]))
+    ))
+  }
+
+  if (model_lc == "spline") {
+    out <- .app_parameter_rows(
+      c("Spline scale", "Knots"),
+      list(fit$scale, paste(.app_format_param_value(fit$knots), collapse = ", "))
+    )
+    return(rbind(out, .app_raw_theta_rows(theta, prefix = "Gamma ")))
+  }
+
+  if (model_lc == "cox") {
+    starts <- fit$piecewiseDropoutTime
+    return(.app_cox_parameter_rows(theta, starts))
+  }
+
+  .app_raw_theta_rows(theta)
+}
+
+
+.app_parameter_table_tag <- function(rows) {
+  if (is.null(rows) || nrow(rows) == 0) {
+    return(NULL)
+  }
+
+  tags$table(
+    class = "table table-striped table-condensed",
+    tags$thead(
+      tags$tr(
+        tags$th("Parameter"),
+        tags$th("Estimate")
+      )
+    ),
+    tags$tbody(
+      lapply(seq_len(nrow(rows)), function(i) {
+        tags$tr(
+          tags$td(rows$Parameter[i]),
+          tags$td(rows$Estimate[i])
+        )
+      })
+    )
+  )
+}
+
+
+.app_parameter_panel <- function(fit_output, kind, empty_message = NULL) {
+  if (is.null(fit_output)) {
+    return(if (!is.null(empty_message)) helpText(empty_message) else NULL)
+  }
+
+  count <- min(.app_fit_output_count(fit_output), 6L)
+  if (count < 1) {
+    return(if (!is.null(empty_message)) helpText(empty_message) else NULL)
+  }
+
+  rows_fn <- switch(
+    kind,
+    event = .app_event_parameter_rows,
+    dropout = .app_dropout_parameter_rows,
+    stop("Unsupported parameter summary kind.")
+  )
+
+  tagList(lapply(seq_len(count), function(i) {
+    fit_element <- .app_get_fit_output_element(fit_output, i)
+    if (is.null(fit_element)) {
+      return(NULL)
+    }
+
+    header <- fit_element$fit$treatment_description
+    rows <- rows_fn(fit_element)
+
+    tags$div(
+      style = "margin-top: 10px;",
+      if (!is.null(header) && nzchar(header)) tags$h5(header),
+      .app_parameter_table_tag(rows)
+    )
+  }))
+}
+
+
 .app_prior_parameter_labels <- function(kind, model, piecewise_times = NULL,
                                         fixed_cure_rate = FALSE) {
   if (is.null(model)) {
@@ -3133,9 +3454,27 @@ server <- function(input, output, session) {
       ),
       tags$h4("Observed-data fit"),
       event_fit_outputs(),
+      tags$details(
+        style = "margin-top: 10px;",
+        tags$summary("Show observed-data parameter estimates"),
+        .app_parameter_panel(
+          fit_output = event_fit(),
+          kind = "event",
+          empty_message = "Observed-data event parameter estimates are not available."
+        )
+      ),
       tags$hr(),
       tags$h4("Prior-informed fit used for prediction"),
-      event_fit_posterior_outputs()
+      event_fit_posterior_outputs(),
+      tags$details(
+        style = "margin-top: 10px;",
+        tags$summary("Show prior-informed parameter estimates"),
+        .app_parameter_panel(
+          fit_output = current_prediction_event_fit_posterior(),
+          kind = "event",
+          empty_message = "Click Predict after entering or changing the event prior to display prior-informed parameter estimates."
+        )
+      )
     )
   })
 
@@ -3198,9 +3537,27 @@ server <- function(input, output, session) {
       ),
       tags$h4("Observed-data fit"),
       dropout_fit_outputs(),
+      tags$details(
+        style = "margin-top: 10px;",
+        tags$summary("Show observed-data parameter estimates"),
+        .app_parameter_panel(
+          fit_output = dropout_fit(),
+          kind = "dropout",
+          empty_message = "Observed-data dropout parameter estimates are not available."
+        )
+      ),
       tags$hr(),
       tags$h4("Prior-informed fit used for prediction"),
-      dropout_fit_posterior_outputs()
+      dropout_fit_posterior_outputs(),
+      tags$details(
+        style = "margin-top: 10px;",
+        tags$summary("Show prior-informed parameter estimates"),
+        .app_parameter_panel(
+          fit_output = current_prediction_dropout_fit_posterior(),
+          kind = "dropout",
+          empty_message = "Click Predict after entering or changing the dropout prior to display prior-informed parameter estimates."
+        )
+      )
     )
   })
 
