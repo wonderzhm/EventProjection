@@ -13,6 +13,7 @@
 ### Package maintenance
 
 - Cleaned `NAMESPACE`, help files, and vignette references after removing the non-core utilities.
+- Enhanced the packaged Shiny app with prior inputs for supported real-time models, separate observed-data and prior-informed fit views, and optional parameter summaries for event and dropout models.
 - Updated package metadata for version `0.2.9.2`.
 
 ## EventProjection 0.2.9.1

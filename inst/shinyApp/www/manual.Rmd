@@ -2,7 +2,7 @@
 title: "EventProjection Manual"
 subtitle: "Shiny application guide and technical reference"
 author: "Haiming Zhou"
-date: "March 7, 2026"
+date: "March 27, 2026"
 output:
   pdf_document:
     toc: true
@@ -51,6 +51,8 @@ Compared with the older manual, this version reflects the merged `EventProjectio
 - A user-specified fixed cure-rate option is documented explicitly.
 - The Shiny app data-upload section now reflects support for `.xlsx`, `.csv`, `.rda`, and `.RData` files.
 - The examples section now includes cure-model examples with fixed cure rates.
+- The real-time app workflow now supports optional prior inputs for supported enrollment, event, and dropout models.
+- The Event and Dropout tabs now distinguish observed-data fits from prior-informed fits used for prediction and provide optional parameter summaries.
 
 # Data requirements
 
@@ -371,8 +373,10 @@ The app can be launched from the installed package using the exported launcher.
 
 ```r
 library(EventProjection)
-runShinyApp_eventPred()
+runShinyApp()
 ```
+
+The legacy launcher `runShinyApp_eventPred()` remains available as a backward-compatible wrapper.
 
 ## Main inputs shown in the app
 
@@ -397,28 +401,40 @@ If `By treatment?` is selected, the app exposes treatment-specific model inputs 
 
 The app also provides a `Fix parameters?` option for simulation settings. This is intended for scenarios where the fitted or prior parameter values are treated as fixed rather than sampled from their estimated uncertainty distribution.
 
+### Optional real-time priors
+
+In real-time workflows, prior inputs default to `NULL`. The app only uses a prior when the corresponding `Use prior ...` checkbox is selected and the chosen model supports prior input. Otherwise, prediction uses the package default behavior without an explicit user-supplied prior.
+
 ## Enrollment panel
 
 - At the design stage, specify an enrollment prior model and its parameters.
 - At the analysis stage, choose an enrollment model and any additional options such as spline knots or piecewise interval starts.
+- When enrollment is still ongoing, the app also supports optional real-time enrollment priors for `Poisson`, `Time-decay`, and `Piecewise Poisson` models.
+- For supported real-time models, the app collects prior `theta` and `vtheta` values on the package parameterization scale.
 
 ## Event panel
 
 - At the design stage, specify an event prior model and its parameters.
 - At the analysis stage, choose the fitted event model.
+- For supported real-time models, the app can optionally collect an event prior through `Use prior for event model`.
 - For cure models in the current app, an additional checkbox allows the cure rate to be fixed rather than estimated.
 - For piecewise exponential models, specify the interval start times.
-- For spline and Cox models, additional controls appear when needed.
+- For spline and Cox models, additional controls appear when needed, but real-time prior input is not provided.
+- The Event tab shows both the observed-data likelihood fit and, when available after clicking `Predict`, a separate prior-informed fit used for prediction.
+- Optional parameter-summary panels are available for both the observed-data fit and the prior-informed fit.
 
 ## Dropout panel
 
 The dropout panel behaves analogously to the event panel, but without cure-rate extensions.
 
+- Supported real-time dropout priors are available for `Exponential`, `Weibull`, `Log-logistic`, `Log-normal`, and `Piecewise exponential` models.
+- The Dropout tab also distinguishes the observed-data likelihood fit from the prior-informed fit used for prediction and provides optional parameter summaries for both.
+
 ## Output
 
 The app returns:
 
-- fitted-model displays where applicable;
+- fitted-model displays where applicable, including separate observed-data and prior-informed fit views for event and dropout models when a supported prior is supplied;
 - simulation-based prediction summaries;
 - prediction intervals for enrollment and/or event timing;
 - optional by-treatment summaries; and
@@ -593,4 +609,3 @@ pred_delay <- getPrediction(
 - Royston P, Parmar MKB. Flexible parametric proportional-hazards and proportional-odds models for censored survival data, with application to prognostic modelling and estimation of treatment effects. *Statistics in Medicine*. 2002;21:2175-2197.
 - Lu K. `eventPred`: prediction of enrollment and event times in clinical trials. R package.
 - `EventPredInCure`: cure-rate and delayed-treatment-effect extensions used as an upstream reference for selected merged functionality.
-
