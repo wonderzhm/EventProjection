@@ -6,6 +6,12 @@
 - Standardized calendar-date conversion from study and follow-up times through a single internal rule, improving consistency across summaries, prediction outputs, and plots.
 - Added raw continuous prediction-time outputs alongside reported day/date summaries and aligned fitted survival/dropout curve grids with the continuous-time workflow.
 
+### Compatibility note
+
+- This release changes the simulation time handling relative to the original `eventPred` package and earlier whole-day behavior. The legacy workflow rounded simulated enrollment and event/dropout times to integer days before forming prediction summaries; `0.2.9.3` keeps fractional times internally and converts to displayed study days/dates only at the reporting layer.
+- Because of that change, predictions generated with the same random seed may no longer match the exact day/date outputs from `eventPred`. Reported enrollment dates can be about 1 day earlier when fractional enrollment times are no longer rounded up by whole-day processing.
+- Event projections can differ by about 1 to 2 days for the same seed because study-event timing is built from both simulated enrollment timing and simulated follow-up timing. Under the legacy workflow, each component could be shifted later by integer-day rounding; under the continuous-time workflow, those fractional components are preserved and then mapped back to dates with the package's inclusive day-count convention.
+
 ## EventProjection 0.2.9.2
 
 ### Performance and memory
