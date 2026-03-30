@@ -115,7 +115,7 @@ summarizeObserved <- function(df, to_predict = "event only",
     tp = ongoingSubjects[, min(
       as.numeric(get("randdt") - get("trialsdt")) + get("time"))]
     
-    cutofftpdt = as.Date(tp - 1, origin = trialsdt)
+    cutofftpdt = .ep_study_time_to_date(tp, trialsdt)
   }
   
   if (by_treatment) {
@@ -162,7 +162,7 @@ summarizeObserved <- function(df, to_predict = "event only",
     if (grepl("event", to_predict, ignore.case = TRUE)) {
       # time to event data
       adtte <- data.table::copy(dt)[
-        , `:=`(adt = as.Date(get("time") - 1, origin = get("randdt")))][
+        , `:=`(adt = .ep_followup_time_to_date(get("time"), get("randdt")))][
           order(get("adt")), `:=`(n = cumsum(get("event")),
                                   parameter = "Event", date = get("adt"))]
       
@@ -210,7 +210,7 @@ summarizeObserved <- function(df, to_predict = "event only",
       trtcols = c("treatment", "treatment_description")
       
       adtte <- data.table::copy(dt)[
-        , `:=`(adt = as.Date(get("time") - 1, origin = get("randdt")))][
+        , `:=`(adt = .ep_followup_time_to_date(get("time"), get("randdt")))][
           do.call("order", lapply(c(trtcols, "adt"), as.name))][
             , `:=`(n = cumsum(get("event")),
                    parameter = "Event", date = get("adt")),
@@ -343,7 +343,7 @@ summarizeObserved <- function(df, to_predict = "event only",
     n = as.numeric(table(factor(t, levels = days)))
     
     enroll <- data.table::data.table(
-      day = days, n = n, date = as.Date(days - 1, origin = trialsdt))
+      day = days, n = n, date = .ep_study_time_to_date(days, trialsdt))
     
     if (generate_plot) {
       fit <- loess.smooth(enroll$date, enroll$n,

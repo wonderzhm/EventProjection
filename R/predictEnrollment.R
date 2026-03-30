@@ -71,9 +71,10 @@
 #'
 #' @return
 #' A list of prediction results, which includes important information
-#' such as the median, lower and upper percentiles for the estimated
-#' time to reach the target number of subjects, as well as simulated
-#' enrollment data for new subjects. The summarized data for the
+#' such as the raw continuous prediction time
+#' (\code{enroll_pred_time}) and the corresponding day/date summaries for
+#' the estimated time to reach the target number of subjects, as well as
+#' simulated enrollment data for new subjects. The summarized data for the
 #' prediction plot is also included within the list.
 #'
 #' @note
@@ -486,9 +487,9 @@ predictEnrollment <- function(df = NULL, target_n = NA,
   newSubjects[, `:=`(usubjid = rep(paste0("Z-", 100000 + (1:n1)), nreps))]
   
   if (t0 == 1) { # design stage
-    newSubjects[, `:=`(arrivalTime = pmax(round(get("arrivalTime")), 1))]
+    newSubjects[, `:=`(arrivalTime = pmax(get("arrivalTime"), 1))]
   } else { # analysis stage
-    newSubjects[, `:=`(arrivalTime = pmax(round(get("arrivalTime")), t0+1))]
+    newSubjects[, `:=`(arrivalTime = pmax(get("arrivalTime"), t0 + 1))]
   }
   
   
@@ -540,16 +541,17 @@ predictEnrollment <- function(df = NULL, target_n = NA,
   # find the arrivalTime of the last subject for each simulated data set
   new1 <- newSubjects[, .SD[.N], by = "draw"]
   
-  pred_day <- ceiling(quantile(new1$arrivalTime, c(0.5, plower, pupper)))
+  pred_time <- .ep_prediction_time_quantiles(new1$arrivalTime, pilevel)
+  pred_day <- .ep_study_time_to_day(pred_time)
   
   t1 = t0 + nyears*365 # extend time to nyears after cutoff
   
   # future time points at which to predict number of subjects
-  t = sort(unique(c(seq(t0, t1, 30), t1, pred_day)))
+  t = sort(unique(c(seq(t0, t1, 30), t1, pred_time)))
   t = t[t <= t1] # restrict range of x-axis
   
   if (!is.null(df)) {
-    pred_date <- as.Date(pred_day - 1, origin = trialsdt)
+    pred_date <- .ep_study_time_to_date(pred_time, trialsdt)
     
     str1 <- paste("Time from cutoff until", target_n, "subjects:",
                   pred_date[1] - cutoffdt + 1, "days")
@@ -591,7 +593,8 @@ predictEnrollment <- function(df = NULL, target_n = NA,
         
         dfs <- data.table::rbindlist(list(dfa1, dfb1), use.names = TRUE)[
           order(get("t")), `:=`(
-            date = as.Date(get("t") - 1, origin = get("trialsdt")))]
+            date = .ep_study_time_to_date(get("t"), get("trialsdt")))]
+        dfs <- .ep_collapse_same_date_rows(dfs)
         
         if (generate_plot) {
           dfa <- dfs[is.na(get("lower"))]
@@ -710,7 +713,8 @@ predictEnrollment <- function(df = NULL, target_n = NA,
         
         dfs <- data.table::rbindlist(list(dfa1, dfb1), use.names = TRUE)[
           do.call("order", mget(c("treatment", "t"))), `:=`(
-            date = as.Date(get("t") - 1, origin = get("trialsdt")))]
+            date = .ep_study_time_to_date(get("t"), get("trialsdt")))]
+        dfs <- .ep_collapse_same_date_rows(dfs, group_cols = trtcols)
         
         if (generate_plot) {
           dfa <- dfs[is.na(get("lower"))]
@@ -827,12 +831,14 @@ predictEnrollment <- function(df = NULL, target_n = NA,
   if (generate_plot && showplot) print(g1)
   
   if (!is.null(df)) {
-    out <- list(target_n = target_n, enroll_pred_day = pred_day,
+    out <- list(target_n = target_n, enroll_pred_time = pred_time,
+                enroll_pred_day = pred_day,
                 enroll_pred_date = pred_date,
                 pilevel = pilevel, nyears = nyears, nreps = nreps,
                 enroll_pred_summary = s1)
   } else {
-    out <- list(target_n = target_n, enroll_pred_day = pred_day,
+    out <- list(target_n = target_n, enroll_pred_time = pred_time,
+                enroll_pred_day = pred_day,
                 pilevel = pilevel, nyears = nyears, nreps = nreps,
                 enroll_pred_summary = s1)
   }

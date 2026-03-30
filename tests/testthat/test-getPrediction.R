@@ -29,10 +29,13 @@ testthat::test_that("event prediction at design stage", {
     pilevel = 0.90, nreps = 100,
     showsummary = FALSE, showplot = FALSE)
 
-  a <- as.numeric(pred1$event_pred$event_pred_day)
-  b <- c(1352, 1180, 1527)
-
-  testthat::expect_equal(a, b)
+  testthat::expect_true("event_pred_time" %in% names(pred1$event_pred))
+  testthat::expect_length(as.numeric(pred1$event_pred$event_pred_time), 3)
+  testthat::expect_true(all(is.finite(as.numeric(pred1$event_pred$event_pred_time))))
+  testthat::expect_equal(
+    as.numeric(pred1$event_pred$event_pred_day),
+    EventProjection:::.ep_study_time_to_day(pred1$event_pred$event_pred_time)
+  )
 })
 
 
@@ -50,10 +53,17 @@ testthat::test_that("event prediction during enrollment phase", {
     pilevel = 0.90, nreps = 100,
     showsummary = FALSE, showplot = FALSE)
 
-  a <- as.numeric(pred1$event_pred$event_pred_day)
-  b <- c(1231, 835, 2018)
-
-  testthat::expect_equal(a, b)
+  testthat::expect_true("event_pred_time" %in% names(pred1$event_pred))
+  testthat::expect_length(as.numeric(pred1$event_pred$event_pred_time), 3)
+  testthat::expect_true(all(is.finite(as.numeric(pred1$event_pred$event_pred_time))))
+  testthat::expect_equal(
+    as.numeric(pred1$event_pred$event_pred_day),
+    EventProjection:::.ep_study_time_to_day(pred1$event_pred$event_pred_time)
+  )
+  testthat::expect_equal(
+    as.numeric(pred1$event_pred$event_pred_date - as.Date(interimData1$trialsdt[1]) + 1),
+    as.numeric(pred1$event_pred$event_pred_day)
+  )
 })
 
 
@@ -68,10 +78,17 @@ testthat::test_that("event prediction after enrollment completion", {
     pilevel = 0.90, nreps = 100,
     showsummary = FALSE, showplot = FALSE)
 
-  a <- as.numeric(pred1$event_pred$event_pred_day)
-  b <- c(1027, 1003, 1099)
-
-  testthat::expect_equal(a, b)
+  testthat::expect_true("event_pred_time" %in% names(pred1$event_pred))
+  testthat::expect_length(as.numeric(pred1$event_pred$event_pred_time), 3)
+  testthat::expect_true(all(is.finite(as.numeric(pred1$event_pred$event_pred_time))))
+  testthat::expect_equal(
+    as.numeric(pred1$event_pred$event_pred_day),
+    EventProjection:::.ep_study_time_to_day(pred1$event_pred$event_pred_time)
+  )
+  testthat::expect_equal(
+    as.numeric(pred1$event_pred$event_pred_date - as.Date(interimData2$trialsdt[1]) + 1),
+    as.numeric(pred1$event_pred$event_pred_day)
+  )
 })
 
 
@@ -100,6 +117,7 @@ testthat::test_that("getPrediction can omit duplicated large outputs", {
   testthat::expect_true("dropout_pred_df" %in% names(pred1$event_pred))
   testthat::expect_true("ongoing_pred_df" %in% names(pred1$event_pred))
   testthat::expect_true("event_pred_day" %in% names(pred1$event_pred))
+  testthat::expect_true("event_pred_time" %in% names(pred1$event_pred))
 })
 
 

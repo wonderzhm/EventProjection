@@ -146,14 +146,14 @@ to \code{FALSE} can reduce memory use for large \code{nreps}.}
 }
 \value{
 A list of prediction results which includes important
-information such as the median, lower and upper percentiles for
-the estimated day and date to reach the target number of events,
-as well as simulated event data for both ongoing and new subjects.
-The data for the prediction plot is also included within this list.
-If target_t is specified, it additionally provides the median,
-lower, and upper percentiles of the event count at target_t,
-as well as the predictive probability of achieving the target
-number of events by target_t.
+information such as the raw continuous prediction time
+(\code{event_pred_time}) and the corresponding day/date summaries for
+reaching the target number of events, as well as simulated event data
+for both ongoing and new subjects. The data for the prediction plot is
+also included within this list. If target_t is specified, it
+additionally provides the median, lower, and upper percentiles of the
+event count at target_t, as well as the predictive probability of
+achieving the target number of events by target_t.
 }
 \description{
 Utilizes pre-fitted time-to-event and time-to-dropout models

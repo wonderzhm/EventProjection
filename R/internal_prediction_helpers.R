@@ -1,3 +1,68 @@
+.ep_study_time_to_day <- function(t, min_day = 1) {
+  t_num <- as.numeric(t)
+  out <- floor(t_num)
+  out[!is.na(out)] <- pmax(out[!is.na(out)], min_day)
+  out
+}
+
+
+.ep_study_time_to_date <- function(t, origin_date) {
+  as.Date(floor(as.numeric(t) - 1), origin = as.Date(origin_date))
+}
+
+
+.ep_followup_time_to_date <- function(u, randdt) {
+  as.Date(floor(as.numeric(u) - 1), origin = as.Date(randdt))
+}
+
+
+.ep_prediction_time_quantiles <- function(x, pilevel) {
+  plower <- (1 - pilevel) / 2
+  pupper <- 1 - plower
+
+  stats::quantile(
+    as.numeric(x),
+    probs = c(0.5, plower, pupper),
+    names = TRUE
+  )
+}
+
+
+.ep_time_grid <- function(max_time, anchor_times = numeric(0), n_points = 201L) {
+  max_time <- as.numeric(max_time)[1]
+  anchor_times <- as.numeric(anchor_times)
+  anchor_times <- anchor_times[is.finite(anchor_times)]
+
+  if (!is.finite(max_time) || max_time <= 0) {
+    return(sort(unique(c(0, anchor_times))))
+  }
+
+  n_points <- max(as.integer(n_points), 2L)
+  base_grid <- seq(0, max_time, length.out = n_points)
+
+  sort(unique(c(0, anchor_times, base_grid)))
+}
+
+
+.ep_collapse_same_date_rows <- function(summary_dt, group_cols = NULL) {
+  if (is.null(summary_dt) || nrow(summary_dt) == 0 || !("date" %in% names(summary_dt))) {
+    return(summary_dt)
+  }
+
+  order_cols <- c(group_cols, "t")
+  data.table::setorderv(summary_dt, order_cols)
+
+  by_cols <- c(group_cols, "date")
+  if ("parameter" %in% names(summary_dt)) {
+    by_cols <- c(by_cols, "parameter")
+  }
+
+  out <- summary_dt[, .SD[.N], by = by_cols]
+  data.table::setorderv(out, order_cols)
+  out
+}
+
+
 .ep_split_by_draw_sorted <- function(dt, value_col, nreps) {
   if (nreps < 1) {
     stop("nreps must be at least 1.")

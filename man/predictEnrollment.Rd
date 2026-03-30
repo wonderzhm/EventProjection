@@ -93,9 +93,10 @@ Setting this to \code{FALSE} can reduce memory use for large \code{nreps}.}
 }
 \value{
 A list of prediction results, which includes important information
-such as the median, lower and upper percentiles for the estimated
-time to reach the target number of subjects, as well as simulated
-enrollment data for new subjects. The summarized data for the
+such as the raw continuous prediction time
+(\code{enroll_pred_time}) and the corresponding day/date summaries for
+the estimated time to reach the target number of subjects, as well as
+simulated enrollment data for new subjects. The summarized data for the
 prediction plot is also included within the list.
 }
 \description{

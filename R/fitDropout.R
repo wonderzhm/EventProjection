@@ -213,7 +213,9 @@ fitDropout <- function(df, dropout_model = "exponential",
       
       rate <- exp(as.numeric(x %*% fit3$theta))
       
-      dffit3 <- data.table::data.table(time = seq(0, max(df1$time)))[
+      dffit3 <- data.table::data.table(
+        time = .ep_time_grid(max(df1$time), anchor_times = df1$time)
+      )[
         , `:=`(surv = sapply(get("time"), function(t)
           mean(stats::pexp(t, rate, lower.tail = FALSE))))]
     } else if (tolower(dropout_model) == "weibull") {
@@ -232,7 +234,9 @@ fitDropout <- function(df, dropout_model = "exponential",
       shape <- exp(-fit3$theta[q + 2])
       scale <- exp(as.numeric(x %*% fit3$theta[1:(q + 1)]))
       
-      dffit3 <- data.table::data.table(time = seq(0, max(df1$time)))[
+      dffit3 <- data.table::data.table(
+        time = .ep_time_grid(max(df1$time), anchor_times = df1$time)
+      )[
         , `:=`(surv = sapply(get("time"), function(t)
           mean(stats::pweibull(t, shape, scale, lower.tail = FALSE))))]
     } else if (tolower(dropout_model) == "log-logistic") {
@@ -251,7 +255,9 @@ fitDropout <- function(df, dropout_model = "exponential",
       location <- as.numeric(x %*% fit3$theta[1:(q + 1)])
       scale <- exp(fit3$theta[q + 2])
       
-      dffit3 <- data.table::data.table(time = seq(0, max(df1$time)))[
+      dffit3 <- data.table::data.table(
+        time = .ep_time_grid(max(df1$time), anchor_times = df1$time)
+      )[
         , `:=`(surv = sapply(get("time"), function(t)
           mean(stats::plogis(log(t), location, scale, lower.tail = FALSE))))]
     } else if (tolower(dropout_model) == "log-normal") {
@@ -270,7 +276,9 @@ fitDropout <- function(df, dropout_model = "exponential",
       meanlog <- as.numeric(x %*% fit3$theta[1:(q + 1)])
       sdlog <- exp(fit3$theta[q + 2])
       
-      dffit3 <- data.table::data.table(time = seq(0, max(df1$time)))[
+      dffit3 <- data.table::data.table(
+        time = .ep_time_grid(max(df1$time), anchor_times = df1$time)
+      )[
         , `:=`(surv = sapply(get("time"), function(t)
           mean(stats::plnorm(t, meanlog, sdlog, lower.tail = FALSE))))]
     } else if (tolower(dropout_model) == "piecewise exponential") {
@@ -282,7 +290,7 @@ fitDropout <- function(df, dropout_model = "exponential",
       
       fit3 <- pwexpreg(df1$time, df1$dropout, J, piecewiseDropoutTime, q, x)
       
-      time <- seq(0, max(df1$time))
+      time <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
       
       surv <- purrr::map(1:n0, function(l)
         ppwexp(time, fit3$theta, J, fit3$piecewiseDropoutTime, q, x[l,],
@@ -315,7 +323,7 @@ fitDropout <- function(df, dropout_model = "exponential",
                    bic = w1 * bic1 + (1 - w1) * bic2,
                    w1 = w1)
       
-      time <- seq(0, max(df1$time))
+      time <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
       
       surv <- purrr::map(1:n0, function(l)
         pmodavg(time, fit3$theta, w1, q, x[l,], lower.tail = FALSE))
@@ -339,7 +347,7 @@ fitDropout <- function(df, dropout_model = "exponential",
                    knots = spl$knots,
                    scale = spl$scale)
       
-      time <- seq(0, max(df1$time))
+      time <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
       
       if (q > 0) {
         xbeta <- as.numeric(as.matrix(x[, -1]) %*%
@@ -410,7 +418,7 @@ fitDropout <- function(df, dropout_model = "exponential",
                    bic = -2 * llik + (M + q) * log(n0),
                    piecewiseDropoutTime = tcut)
       
-      time <- seq(0, max(df1$time))
+      time <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
       
       lambda2 <- sum(bh$haz[(M - m_dropout + 1):M]) /
         (bh$time[M] - bh$time[M - m_dropout])

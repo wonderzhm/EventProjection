@@ -1,3 +1,11 @@
+## EventProjection 0.2.9.3
+
+### Time handling
+
+- Preserved continuous internal times for enrollment, event, and dropout prediction instead of rounding simulated values to whole days.
+- Standardized calendar-date conversion from study and follow-up times through a single internal rule, improving consistency across summaries, prediction outputs, and plots.
+- Added raw continuous prediction-time outputs alongside reported day/date summaries and aligned fitted survival/dropout curve grids with the continuous-time workflow.
+
 ## EventProjection 0.2.9.2
 
 ### Performance and memory

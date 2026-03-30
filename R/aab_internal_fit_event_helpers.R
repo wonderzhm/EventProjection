@@ -1,6 +1,6 @@
 .ep_fit_survreg_event_model <- function(df1, formula, event_model_lc,
                                         n0, d0, q, x) {
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   if (event_model_lc == "exponential") {
     erify::check_positive(d0 - q, supplement = paste(
@@ -110,7 +110,7 @@
     x
   )
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
   surv <- purrr::map(seq_len(n0), function(idx) {
     ppwexp(
       time_grid,
@@ -161,7 +161,7 @@
     w1 = w1
   )
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
   surv <- purrr::map(seq_len(n0), function(idx) {
     pmodavg(time_grid, fit2$theta, w1, q, x[idx, ], lower.tail = FALSE)
   })
@@ -198,7 +198,7 @@
     scale = spl$scale
   )
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   if (q > 0) {
     xbeta <- as.numeric(as.matrix(x[, -1]) %*% fit2$theta[(k + 3):(k + q + 2)])
@@ -287,7 +287,7 @@
     piecewiseSurvivalTime = tcut
   )
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
   lambda2 <- sum(bh$haz[(m_events - m + 1):m_events]) /
     (bh$time[m_events] - bh$time[m_events - m])
   lambda <- c(lambda1, lambda2)
@@ -363,7 +363,7 @@
     p_cure <- cure_rate
   }
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   list(
     fit = fit2,
@@ -429,7 +429,7 @@
     p_cure <- cure_rate
   }
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   list(
     fit = fit2,
@@ -499,7 +499,7 @@
     p_cure <- cure_rate
   }
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   list(
     fit = fit2,
@@ -565,7 +565,7 @@
     p_cure <- cure_rate
   }
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   list(
     fit = fit2,
@@ -641,7 +641,7 @@
     p_cure <- cure_rate
   }
 
-  time_grid <- seq(0, max(df1$time))
+  time_grid <- .ep_time_grid(max(df1$time), anchor_times = df1$time)
 
   list(
     fit = fit2,

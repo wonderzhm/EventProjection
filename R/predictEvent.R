@@ -120,14 +120,14 @@
 #' and dropout times for both ongoing and new subjects in the trial.
 #'
 #' @return A list of prediction results which includes important
-#' information such as the median, lower and upper percentiles for
-#' the estimated day and date to reach the target number of events,
-#' as well as simulated event data for both ongoing and new subjects.
-#' The data for the prediction plot is also included within this list.
-#' If target_t is specified, it additionally provides the median,
-#' lower, and upper percentiles of the event count at target_t,
-#' as well as the predictive probability of achieving the target
-#' number of events by target_t.
+#' information such as the raw continuous prediction time
+#' (\code{event_pred_time}) and the corresponding day/date summaries for
+#' reaching the target number of events, as well as simulated event data
+#' for both ongoing and new subjects. The data for the prediction plot is
+#' also included within this list. If target_t is specified, it
+#' additionally provides the median, lower, and upper percentiles of the
+#' event count at target_t, as well as the predictive probability of
+#' achieving the target number of events by target_t.
 #'
 #' @references
 #' Emilia Bagiella and Daniel F. Heitjan. Predicting analysis times in
@@ -702,7 +702,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
     treatment_descriptionOngoing <- ongoingSubjects$treatment_description
     time0Ongoing <- ongoingSubjects$time
     tp = ongoingSubjects[, min(get("totalTime"))]
-    cutofftpdt = as.Date(tp - 1, origin = trialsdt)
+    cutofftpdt = .ep_study_time_to_date(tp, trialsdt)
     n0 = dt[, .N]
     d0 = dt[, sum(get("event"))]
     c0 = dt[, sum(get("dropout"))]
@@ -731,10 +731,10 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
   if (!is.null(newSubjects)) {
     # predicted enrollment end day
     new1 <- nt[, .SD[.N], by = get("draw")]
-    pred_day1 <- ceiling(quantile(new1$arrivalTime, c(0.5, plower, pupper)))
+    pred_time1 <- .ep_prediction_time_quantiles(new1$arrivalTime, pilevel)
     
     # future time points at which to predict number of subjects
-    t = sort(unique(c(seq(t0, t1, 30), t1, pred_day1)))
+    t = sort(unique(c(seq(t0, t1, 30), t1, pred_time1)))
     t = t[t <= t1]
   }
   
@@ -783,14 +783,14 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       
       enroll_pred_df <- data.table::rbindlist(list(
         dfa1, dfb1t0, dfb1t1), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Enrollment")]
     } else if (is.null(df)) { # new subjects only
       enroll_pred_df <- dfb1[, `:=`(parameter = "Enrollment")]
     } else { # existing and new subjects
       enroll_pred_df <- data.table::rbindlist(list(
         dfa1, dfb1), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Enrollment")]
     }
     
@@ -881,14 +881,14 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       
       enroll_pred_df <- data.table::rbindlist(list(
         dfa1, dfb1t0, dfb1t1), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Enrollment")]
     } else if (is.null(df)) { # new subjects only
       enroll_pred_df <- dfb1[, `:=`(parameter = "Enrollment")]
     } else { # existing and new subjects
       enroll_pred_df <- data.table::rbindlist(list(
         dfa1, dfb1), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Enrollment")]
     }
     
@@ -1823,7 +1823,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       arrivalTime = arrivalTimex,
       treatment = treatmentx,
       treatment_description = treatment_descriptionx,
-      time = pmax(round(timex), time0+1),
+      time = pmax(timex, time0 + 1),
       event = eventx,
       dropout = dropoutx)]
     
@@ -1863,25 +1863,25 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       , `:=`(n = seq_len(.N)), by = "draw"][
         get("n") == target_d - d0]
     
-    pred_day <- ceiling(quantile(new1$totalTime, c(0.5, plower, pupper)))
+    pred_time <- .ep_prediction_time_quantiles(new1$totalTime, pilevel)
   } else {
     qs = 1 - c(0.5, plower, pupper)
-    pred_day = rep(NA, 3)
+    pred_time = rep(NA_real_, 3)
     for (j in 1:3) {
       # check if the quantile can be estimated from observed data
       if (sdf(tmax, target_d, d0, newEvents) <= qs[j]) {
-        pred_day[j] = uniroot(function(x)
+        pred_time[j] = uniroot(function(x)
           sdf(x, target_d, d0, newEvents) - qs[j],
           c(tp, tmax), tol = 1)$root
-        pred_day[j] = ceiling(pred_day[j])
       }
     }
-    names(pred_day) <- names(quantile(1:100, c(0.5, plower, pupper)))
+    names(pred_time) <- names(stats::quantile(1:100, c(0.5, plower, pupper)))
   }
   
+  pred_day <- .ep_study_time_to_day(pred_time)
   
   if (!is.null(df)) {
-    pred_date <- as.Date(pred_day - 1, origin = trialsdt)
+    pred_date <- .ep_study_time_to_date(pred_time, trialsdt)
     
     str1 <- paste("Time from cutoff until", target_d, "events:",
                   pred_date[1] - cutoffdt + 1, "days")
@@ -1930,7 +1930,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
     )
 
     if (!is.null(df)) {
-      pred_at_t[, `:=`(date = as.Date(get("t"), origin = trialsdt))]
+      pred_at_t[, `:=`(date = .ep_study_time_to_date(get("t"), trialsdt))]
     }
   }
   
@@ -2015,19 +2015,19 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       # concatenate events before and after data cut
       event_pred_df <- data.table::rbindlist(list(
         dfa2, dfb2), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Event")]
       
       # concatenate dropouts before and after data cut
       dropout_pred_df <- data.table::rbindlist(list(
         dfa3, dfb3), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Dropout")]
       
       # concatenate ongoing subjects before and after data cut
       ongoing_pred_df <- data.table::rbindlist(list(
         dfa4, dfb4), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Ongoing")]
     } else {
       event_pred_df <- dfb2[, `:=`(parameter = "Event")]
@@ -2038,6 +2038,16 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
     data.table::setorderv(event_pred_df, "t")
     data.table::setorderv(dropout_pred_df, "t")
     data.table::setorderv(ongoing_pred_df, "t")
+    if (!is.null(df)) {
+      enroll_pred_df <- .ep_collapse_same_date_rows(enroll_pred_df)
+      event_pred_df <- .ep_collapse_same_date_rows(event_pred_df)
+      dropout_pred_df <- .ep_collapse_same_date_rows(dropout_pred_df)
+      ongoing_pred_df <- .ep_collapse_same_date_rows(ongoing_pred_df)
+      data.table::setorderv(enroll_pred_df, "t")
+      data.table::setorderv(event_pred_df, "t")
+      data.table::setorderv(dropout_pred_df, "t")
+      data.table::setorderv(ongoing_pred_df, "t")
+    }
     
     
     # generate plot
@@ -2439,19 +2449,19 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
       # concatenate events before and after data cut
       event_pred_df <- data.table::rbindlist(list(
         dfa2, dfb2), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Event")]
       
       # concatenate dropouts before and after data cut
       dropout_pred_df <- data.table::rbindlist(list(
         dfa3, dfb3), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Dropout")]
       
       # concatenate ongoing subjects before and after data cut
       ongoing_pred_df <- data.table::rbindlist(list(
         dfa4, dfb4), use.names = TRUE)[, `:=`(
-          date = as.Date(get("t") - 1, origin = get("trialsdt")),
+          date = .ep_study_time_to_date(get("t"), get("trialsdt")),
           parameter = "Ongoing")]
     } else {
       event_pred_df <- dfb2[, `:=`(parameter = "Event")]
@@ -2462,6 +2472,28 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
     data.table::setorderv(event_pred_df, trttcols)
     data.table::setorderv(dropout_pred_df, trttcols)
     data.table::setorderv(ongoing_pred_df, trttcols)
+    if (!is.null(df)) {
+      enroll_pred_df <- .ep_collapse_same_date_rows(
+        enroll_pred_df,
+        group_cols = trtcols
+      )
+      event_pred_df <- .ep_collapse_same_date_rows(
+        event_pred_df,
+        group_cols = trtcols
+      )
+      dropout_pred_df <- .ep_collapse_same_date_rows(
+        dropout_pred_df,
+        group_cols = trtcols
+      )
+      ongoing_pred_df <- .ep_collapse_same_date_rows(
+        ongoing_pred_df,
+        group_cols = trtcols
+      )
+      data.table::setorderv(enroll_pred_df, trttcols)
+      data.table::setorderv(event_pred_df, trttcols)
+      data.table::setorderv(dropout_pred_df, trttcols)
+      data.table::setorderv(ongoing_pred_df, trttcols)
+    }
     
     # generate plot
     if (generate_plot && (showEnrollment || showEvent ||
@@ -2803,6 +2835,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
     out <- list(
       target_d = target_d,
       cutoffdt = cutoffdt, cutofftpdt = cutofftpdt,
+      event_pred_time = pred_time,
       event_pred_day = pred_day, event_pred_date = pred_date,
       pilevel = pilevel, nyears = nyears, nreps = nreps,
       event_pred_summary = s1
@@ -2810,6 +2843,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
   } else {
     out <- list(
       target_d = target_d,
+      event_pred_time = pred_time,
       event_pred_day = pred_day,
       pilevel = pilevel, nyears = nyears, nreps = nreps,
       event_pred_summary = s1

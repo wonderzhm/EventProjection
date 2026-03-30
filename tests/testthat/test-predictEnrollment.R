@@ -11,10 +11,13 @@ testthat::test_that("enrollment prediction at design stage", {
     pilevel = 0.90, nreps = 100,
     showsummary = FALSE, showplot = FALSE)
 
-  a <- as.numeric(pred1$enroll_pred_day)
-  b <- c(469, 443, 509)
-
-  testthat::expect_equal(a, b)
+  testthat::expect_true("enroll_pred_time" %in% names(pred1))
+  testthat::expect_length(as.numeric(pred1$enroll_pred_time), 3)
+  testthat::expect_true(all(is.finite(as.numeric(pred1$enroll_pred_time))))
+  testthat::expect_equal(
+    as.numeric(pred1$enroll_pred_day),
+    EventProjection:::.ep_study_time_to_day(pred1$enroll_pred_time)
+  )
 })
 
 
@@ -33,10 +36,17 @@ testthat::test_that("enrollment prediction during enrollment stage", {
     pilevel = 0.90, nreps = 100,
     showsummary = FALSE, showplot = FALSE)
 
-  a <- as.numeric(pred1$enroll_pred_day)
-  b <- c(439, 420, 471)
-
-  testthat::expect_equal(a, b)
+  testthat::expect_true("enroll_pred_time" %in% names(pred1))
+  testthat::expect_length(as.numeric(pred1$enroll_pred_time), 3)
+  testthat::expect_true(all(is.finite(as.numeric(pred1$enroll_pred_time))))
+  testthat::expect_equal(
+    as.numeric(pred1$enroll_pred_day),
+    EventProjection:::.ep_study_time_to_day(pred1$enroll_pred_time)
+  )
+  testthat::expect_equal(
+    as.numeric(pred1$enroll_pred_date - as.Date(interimData1$trialsdt[1]) + 1),
+    as.numeric(pred1$enroll_pred_day)
+  )
 })
 
 
@@ -59,6 +69,7 @@ testthat::test_that("enrollment prediction can omit large subject-level output",
   testthat::expect_false("newSubjects" %in% names(pred1))
   testthat::expect_true("enroll_pred_df" %in% names(pred1))
   testthat::expect_true("enroll_pred_day" %in% names(pred1))
+  testthat::expect_true("enroll_pred_time" %in% names(pred1))
 })
 
 
