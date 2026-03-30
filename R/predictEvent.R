@@ -2215,7 +2215,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
               plotly::add_lines(
                 x = range(dfs$date), y = rep(target_d, 2),
                 name = "target events", showlegend = FALSE,
-                line = list(dash="dot", color="rgba(128, 128, 128, 0.5")) %>%
+                line = list(dash="dot", color="rgba(128, 128, 128, 0.5)")) %>%
               plotly::layout(
                 annotations = list(
                   x = 0.95, xref = "paper", y = target_d,
@@ -2316,7 +2316,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
               plotly::add_lines(
                 x = range(dfs$t), y = rep(target_d, 2),
                 name = "target events", showlegend = FALSE,
-                line = list(dash="dot", color="rgba(128, 128, 128, 0.5")) %>%
+                line = list(dash="dot", color="rgba(128, 128, 128, 0.5)")) %>%
               plotly::layout(
                 annotations = list(
                   x = 0.95, xref = "paper", y = target_d,
@@ -2687,7 +2687,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
                     x = range(dfsi$date), y = rep(target_d, 2),
                     name = "target events", showlegend = FALSE,
                     line = list(dash="dot",
-                                color="rgba(128, 128, 128, 0.5")) %>%
+                                color="rgba(128, 128, 128, 0.5)")) %>%
                   plotly::layout(
                     annotations = list(
                       x = 0.95, xref = "paper", y = target_d,
@@ -2799,7 +2799,7 @@ predictEvent <- function(df = NULL, target_d = NA, newSubjects = NULL,
                     x = range(dfsi$t), y = rep(target_d, 2),
                     name = "target events", showlegend = FALSE,
                     line = list(dash="dot",
-                                color="rgba(128, 128, 128, 0.5")) %>%
+                                color="rgba(128, 128, 128, 0.5)")) %>%
                   plotly::layout(
                     annotations = list(
                       x = 0.95, xref = "paper", y = target_d,

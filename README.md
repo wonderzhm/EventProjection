@@ -122,7 +122,7 @@ For backward compatibility, the legacy launcher name is also available:
 EventProjection::runShinyApp_eventPred()
 ```
 
-The app supports importing study data from `.csv` and `.rda`/`.RData` files.
+The app supports importing study data from `.xlsx`, `.csv`, and `.rda`/`.RData` files.
 
 ## Example datasets
 

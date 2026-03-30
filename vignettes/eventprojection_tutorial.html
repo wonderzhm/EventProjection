@@ -513,7 +513,14 @@ models:</p>
 <li><code>&quot;time-decay&quot;</code></li>
 <li><code>&quot;b-spline&quot;</code></li>
 <li><code>&quot;piecewise poisson&quot;</code></li>
+<li><code>&quot;piecewise uniform&quot;</code></li>
 </ul>
+<p><code>&quot;piecewise uniform&quot;</code> is available for design-stage
+enrollment prediction through <code>predictEnrollment()</code> and
+<code>getPrediction()</code> when an
+<code>enroll_fit</code>/<code>enroll_prior</code> object is supplied. It
+is not an observed-data fitting option in
+<code>fitEnrollment()</code>.</p>
 </div>
 <div id="homogeneous-poisson-model" class="section level3">
 <h3>5.2 Homogeneous Poisson model</h3>
@@ -949,6 +956,12 @@ analysis-stage workflow.</p>
 <h3>10.3 <code>predictEnrollment()</code></h3>
 <p>Use a fitted enrollment model or a prior object to generate future
 arrival times and summarize the time to target enrollment.</p>
+<p>The returned object now includes the raw continuous prediction time
+<code>enroll_pred_time</code> together with the corresponding reporting
+summaries <code>enroll_pred_day</code> and, when observed dates are
+available, <code>enroll_pred_date</code>. The day/date summaries are
+derived from the continuous-time result rather than being the primary
+simulated quantity.</p>
 <div id="analysis-stage-enrollment-prediction" class="section level4">
 <h4>Analysis-stage enrollment prediction</h4>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>pred_enroll <span class="ot">&lt;-</span> <span class="fu">predictEnrollment</span>(</span>
@@ -979,6 +992,10 @@ arrival times and summarize the time to target enrollment.</p>
 <span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
 <span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>)</span></code></pre></div>
+<p>In this design-stage example, <code>vtheta = diag(9) * 1e-8</code> is
+used only as a near-deterministic prior template. In practice, such a
+small covariance matrix behaves almost like fixing the enrollment
+parameters rather than representing substantial prior uncertainty.</p>
 </div>
 </div>
 <div id="fitevent" class="section level3">
@@ -1030,6 +1047,12 @@ arrival times and summarize the time to target enrollment.</p>
 <h3>10.6 <code>predictEvent()</code></h3>
 <p>Use fitted event and dropout models to project the timing of future
 events.</p>
+<p>As with enrollment prediction, the returned object includes the raw
+continuous prediction time <code>event_pred_time</code> together with
+the reporting summaries <code>event_pred_day</code> and, when observed
+dates are available, <code>event_pred_date</code>. This makes it easier
+to preserve sub-day simulation detail internally while still presenting
+study-day and calendar-date summaries.</p>
 <div id="after-enrollment-completion" class="section level4">
 <h4>After enrollment completion</h4>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>pred_event_complete <span class="ot">&lt;-</span> <span class="fu">predictEvent</span>(</span>
@@ -1075,6 +1098,14 @@ events.</p>
 <p><code>getPrediction()</code> is the main high-level interface. It
 fits models when needed, generates projections, and returns summarized
 results.</p>
+<p>For large simulation runs, you can reduce returned object size with
+<code>return_subject_data = FALSE</code> and
+<code>return_simulation_data = FALSE</code> while still keeping the
+summarized prediction data frames.</p>
+<p>The nested enrollment and event prediction objects returned by
+<code>getPrediction()</code> carry the same continuous-time outputs
+described above, including <code>enroll_pred_time</code> and
+<code>event_pred_time</code>.</p>
 <div id="analysis-stage-before-enrollment-completion" class="section level4">
 <h4>Analysis stage before enrollment completion</h4>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>pred_full_interim <span class="ot">&lt;-</span> <span class="fu">getPrediction</span>(</span>
@@ -1134,6 +1165,14 @@ results.</p>
 <span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a>  <span class="at">showsummary =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a>  <span class="at">showplot =</span> <span class="cn">FALSE</span></span>
 <span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a>)</span></code></pre></div>
+<p>As above, the <code>1e-8</code> prior variances in this example are
+mainly convenient templates for deterministic or near-deterministic
+scenario specification. They should not be interpreted as weakly
+informative priors.</p>
+<p>Design-stage <code>&quot;event only&quot;</code> is not supported in
+<code>getPrediction()</code> when <code>df = NULL</code>. If you already
+have subject-level simulated enrollment available, use
+<code>predictEvent()</code> directly.</p>
 </div>
 </div>
 </div>
@@ -1164,8 +1203,8 @@ temporary data set with mock baseline covariates.</p>
 </div>
 <div id="cure-aware-workflows" class="section level2">
 <h2>12. Cure-aware workflows</h2>
-<p>This section focuses on the cure-model functionality that motivated
-your update request.</p>
+<p>This section focuses on the cure-model functionality available in the
+merged package.</p>
 <div id="supported-cure-aware-event-models" class="section level3">
 <h3>12.1 Supported cure-aware event models</h3>
 <p>The merged package supports the following mixture-cure event models
@@ -1394,6 +1433,10 @@ simulation workflows, not observed-data fitting via
 <code>fitEvent()</code>.</li>
 <li>Dropout models do not currently have cure-aware or
 delayed-treatment-effect extensions.</li>
+<li>Design-stage <code>&quot;event only&quot;</code> prediction is not available
+through <code>getPrediction()</code> when <code>df = NULL</code>; use
+<code>predictEvent()</code> directly if subject-level enrollment
+simulation input is already available.</li>
 </ul>
 <p>These limitations are implementation choices in the current merged
 package rather than general limitations of the underlying statistical
@@ -1418,6 +1461,25 @@ most closely;</li>
 </ul>
 <p>Minor differences may still arise when merged validation, numerical
 safeguards, or edge-case handling differ.</p>
+<p>Beginning with <code>EventProjection</code> 0.2.9.3, same-seed
+comparisons to the original <code>eventPred</code> package can also
+differ because simulated enrollment and event/dropout times are now
+preserved as continuous values internally instead of being rounded to
+whole days before summary.</p>
+<p>In practical terms:</p>
+<ul>
+<li>projected enrollment dates may be about 1 day earlier than in
+<code>eventPred</code> when fractional enrollment times are no longer
+rounded up by whole-day processing;</li>
+<li>projected event dates may differ by about 1 to 2 days because total
+study event timing combines simulated enrollment timing and simulated
+follow-up timing, both of which were previously subject to whole-day
+rounding.</li>
+</ul>
+<p>The continuous raw outputs <code>enroll_pred_time</code> and
+<code>event_pred_time</code> are now the canonical simulated quantities,
+while study-day and calendar-date summaries are derived reporting
+views.</p>
 </div>
 <div id="additional-internal-modeling-helpers" class="section level2">
 <h2>17. Additional internal modeling helpers</h2>

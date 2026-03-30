@@ -558,6 +558,12 @@ fit_enroll_pw <- fitEnrollment(
 
 Use a fitted enrollment model or a prior object to generate future arrival times and summarize the time to target enrollment.
 
+The returned object now includes the raw continuous prediction time
+`enroll_pred_time` together with the corresponding reporting summaries
+`enroll_pred_day` and, when observed dates are available, `enroll_pred_date`.
+The day/date summaries are derived from the continuous-time result rather than
+being the primary simulated quantity.
+
 #### Analysis-stage enrollment prediction
 
 ```{r}
@@ -592,6 +598,11 @@ design_enroll_pred <- predictEnrollment(
   showplot = FALSE
 )
 ```
+
+In this design-stage example, `vtheta = diag(9) * 1e-8` is used only as a
+near-deterministic prior template. In practice, such a small covariance matrix
+behaves almost like fixing the enrollment parameters rather than representing
+substantial prior uncertainty.
 
 ### 10.4 `fitEvent()`
 
@@ -648,6 +659,12 @@ fit_dropout_piecewise <- fitDropout(
 
 Use fitted event and dropout models to project the timing of future events.
 
+As with enrollment prediction, the returned object includes the raw continuous
+prediction time `event_pred_time` together with the reporting summaries
+`event_pred_day` and, when observed dates are available, `event_pred_date`.
+This makes it easier to preserve sub-day simulation detail internally while
+still presenting study-day and calendar-date summaries.
+
 #### After enrollment completion
 
 ```{r}
@@ -698,6 +715,10 @@ pred_event_interim <- predictEvent(
 For large simulation runs, you can reduce returned object size with
 `return_subject_data = FALSE` and `return_simulation_data = FALSE` while still
 keeping the summarized prediction data frames.
+
+The nested enrollment and event prediction objects returned by
+`getPrediction()` carry the same continuous-time outputs described above,
+including `enroll_pred_time` and `event_pred_time`.
 
 #### Analysis stage before enrollment completion
 
@@ -765,6 +786,10 @@ pred_design <- getPrediction(
 )
 ```
 
+As above, the `1e-8` prior variances in this example are mainly convenient
+templates for deterministic or near-deterministic scenario specification. They
+should not be interpreted as weakly informative priors.
+
 Design-stage `"event only"` is not supported in `getPrediction()` when
 `df = NULL`. If you already have subject-level simulated enrollment available,
 use `predictEvent()` directly.
@@ -798,7 +823,7 @@ pred_cov <- getPrediction(
 
 ## 12. Cure-aware workflows
 
-This section focuses on the cure-model functionality that motivated your update request.
+This section focuses on the cure-model functionality available in the merged package.
 
 ### 12.1 Supported cure-aware event models
 
@@ -1033,7 +1058,26 @@ When exact upstream comparison is important, a good working expectation is:
 - non-cure, non-delay branches should match `eventPred` most closely;
 - cure-aware or delayed-treatment-effect branches should match `EventPredInCure` most closely.
 
-Minor differences may still arise when merged validation, numerical safeguards, or edge-case handling differ.
+Minor differences may still arise when merged validation, numerical safeguards,
+or edge-case handling differ.
+
+Beginning with `EventProjection` 0.2.9.3, same-seed comparisons to the
+original `eventPred` package can also differ because simulated enrollment and
+event/dropout times are now preserved as continuous values internally instead
+of being rounded to whole days before summary.
+
+In practical terms:
+
+- projected enrollment dates may be about 1 day earlier than in `eventPred`
+  when fractional enrollment times are no longer rounded up by whole-day
+  processing;
+- projected event dates may differ by about 1 to 2 days because total study
+  event timing combines simulated enrollment timing and simulated follow-up
+  timing, both of which were previously subject to whole-day rounding.
+
+The continuous raw outputs `enroll_pred_time` and `event_pred_time` are now the
+canonical simulated quantities, while study-day and calendar-date summaries are
+derived reporting views.
 
 ## 17. Additional internal modeling helpers
 
